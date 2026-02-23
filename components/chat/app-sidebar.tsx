@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button"
 
 // Dummy data for chat history
-const history = [
+const initialHistory = [
     {
         label: "Today",
         items: [
@@ -48,10 +48,32 @@ const history = [
 ]
 
 export function AppSidebar() {
+    const [chatHistory, setChatHistory] = React.useState(initialHistory)
     const [query, setQuery] = React.useState("")
     const [debouncedQuery, setDebouncedQuery] = React.useState("")
     const [shortcut, setShortcut] = React.useState("Ctrl+K")
-    const { isMobile } = useSidebar()
+    const { isMobile, setOpenMobile } = useSidebar()
+
+    React.useEffect(() => {
+        const handleAddChat = (e: any) => {
+            const title = e.detail?.title || "New Chat"
+            const shortTitle = title.length > 25 ? title.substring(0, 25) + '...' : title
+            setChatHistory(prev => {
+                const todayGroupIndex = prev.findIndex(g => g.label === "Today")
+                if (todayGroupIndex >= 0) {
+                    const newHistory = [...prev]
+                    newHistory[todayGroupIndex] = {
+                        ...newHistory[todayGroupIndex],
+                        items: [{ title: shortTitle, url: "#" }, ...newHistory[todayGroupIndex].items]
+                    }
+                    return newHistory
+                }
+                return [{ label: "Today", items: [{ title: shortTitle, url: "#" }] }, ...prev]
+            })
+        }
+        window.addEventListener('add-chat', handleAddChat)
+        return () => window.removeEventListener('add-chat', handleAddChat)
+    }, [])
 
     // Debounce search query
     React.useEffect(() => {
@@ -84,9 +106,9 @@ export function AppSidebar() {
 
     // Filter history based on debounced query
     const filteredHistory = React.useMemo(() => {
-        if (!debouncedQuery) return history
+        if (!debouncedQuery) return chatHistory
 
-        return history
+        return chatHistory
             .map((group) => ({
                 ...group,
                 items: group.items.filter((item) =>
@@ -132,7 +154,16 @@ export function AppSidebar() {
                 </div>
 
                 <div className="px-2 pb-2">
-                    <Button className="w-full justify-start gap-2" variant="outline">
+                    <Button
+                        className="w-full justify-start gap-2"
+                        variant="outline"
+                        onClick={() => {
+                            window.dispatchEvent(new CustomEvent('new-chat'))
+                            if (isMobile) {
+                                setOpenMobile(false)
+                            }
+                        }}
+                    >
                         <Plus className="w-4 h-4" />
                         New Chat
                     </Button>
