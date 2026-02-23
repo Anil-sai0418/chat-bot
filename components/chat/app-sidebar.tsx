@@ -55,7 +55,7 @@ export function AppSidebar() {
     const { isMobile, setOpenMobile } = useSidebar()
 
     React.useEffect(() => {
-        const handleAddChat = (e: CustomEvent) => {
+        const handleAddChat = (e: any) => {
             const title = e.detail?.title || "New Chat"
             const shortTitle = title.length > 25 ? title.substring(0, 25) + '...' : title
             setChatHistory(prev => {
@@ -71,8 +71,8 @@ export function AppSidebar() {
                 return [{ label: "Today", items: [{ title: shortTitle, url: "#" }] }, ...prev]
             })
         }
-        window.addEventListener('add-chat', handleAddChat as EventListener)
-        return () => window.removeEventListener('add-chat', handleAddChat as EventListener)
+        window.addEventListener('add-chat', handleAddChat)
+        return () => window.removeEventListener('add-chat', handleAddChat)
     }, [])
 
     // Debounce search query
@@ -116,47 +116,47 @@ export function AppSidebar() {
                 ),
             }))
             .filter((group) => group.items.length > 0)
-    }, [debouncedQuery, chatHistory])
+    }, [debouncedQuery])
 
     return (
         <Sidebar>
-            <SidebarHeader className="border-b">
+            <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-sidebar-accent/50">
-                            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-600 to-blue-700 text-sidebar-primary-foreground font-semibold">
+                        <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+                            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-blue-600 text-sidebar-primary-foreground">
                                 <MessageSquare className="size-4" />
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight">
-                                <span className="truncate font-semibold">Vextron</span>
-                                <span className="truncate text-xs opacity-75">AI Assistant</span>
+                                <span className="truncate font-semibold">Vextron Chat</span>
+                                <span className="truncate text-xs">Pro Plan</span>
                             </div>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
 
-                <div className="px-2 py-2">
+                <div className="px-2 py-1">
                     <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                         <SidebarInput
                             data-sidebar-search
                             placeholder="Search chats..."
-                            className="pl-8 pr-10 bg-sidebar-accent/30 focus:bg-sidebar-accent/50 transition-colors border-0 text-sm"
+                            className="pl-8 pr-12 bg-sidebar-accent/50 focus:bg-background transition-colors"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                         />
                         {!isMobile && (
-                            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
                                 {shortcut}
                             </kbd>
                         )}
                     </div>
                 </div>
 
-                <div className="px-2 pb-2 pt-1">
+                <div className="px-2 pb-2">
                     <Button
-                        className="w-full justify-center gap-2 font-medium"
-                        size="sm"
+                        className="w-full justify-start gap-2"
+                        variant="outline"
                         onClick={() => {
                             window.dispatchEvent(new CustomEvent('new-chat'))
                             if (isMobile) {
@@ -176,16 +176,16 @@ export function AppSidebar() {
                     </div>
                 ) : (
                     filteredHistory.map((group) => (
-                        <SidebarGroup key={group.label} className="py-3">
-                            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider opacity-70">{group.label}</SidebarGroupLabel>
+                        <SidebarGroup key={group.label}>
+                            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
                             <SidebarGroupContent>
                                 <SidebarMenu>
                                     {group.items.map((item) => (
                                         <SidebarMenuItem key={item.title}>
-                                            <SidebarMenuButton asChild className="hover:bg-sidebar-accent/50 rounded-md transition-colors">
-                                                <a href={item.url} className="text-xs">
-                                                    <MessageSquare className="mr-2 h-4 w-4 opacity-50 shrink-0" />
-                                                    <span className="truncate">{item.title}</span>
+                                            <SidebarMenuButton asChild>
+                                                <a href={item.url}>
+                                                    <MessageSquare className="mr-2 h-4 w-4 opacity-50" />
+                                                    <span>{item.title}</span>
                                                 </a>
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>
@@ -196,18 +196,18 @@ export function AppSidebar() {
                     ))
                 )}
             </SidebarContent>
-            <SidebarFooter className="border-t">
+            <SidebarFooter>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton className="hover:bg-sidebar-accent/50 transition-colors">
-                            <User className="h-4 w-4" />
-                            <span className="text-xs font-medium">Profile</span>
+                        <SidebarMenuButton>
+                            <User />
+                            <span>User Profile</span>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                        <SidebarMenuButton className="hover:bg-sidebar-accent/50 transition-colors">
-                            <Settings className="h-4 w-4" />
-                            <span className="text-xs font-medium">Settings</span>
+                        <SidebarMenuButton>
+                            <Settings />
+                            <span>Settings</span>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>

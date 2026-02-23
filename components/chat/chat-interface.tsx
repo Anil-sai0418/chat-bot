@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowUp, Bot, FileUp, Image as ImageIcon, ImagePlus, Loader2, LogOut, Mic, Plus, Settings, Share2, User } from "lucide-react"
+import { ArrowUp, Bot, FileUp, Image as ImageIcon, ImagePlus, Loader2, LogOut, Mic, MoreVertical, Paperclip, Plus, Settings, Share2, Smile, StopCircle, User } from "lucide-react"
 import { toast } from "sonner"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -35,7 +35,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ModeToggle } from "@/components/mode-toggle"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { useVoiceRecording } from "@/hooks/use-voice-recording"
 
 interface Message {
     id: string
@@ -48,25 +47,8 @@ export function ChatInterface() {
     const [messages, setMessages] = React.useState<Message[]>([])
     const [input, setInput] = React.useState("")
     const [isShareOpen, setIsShareOpen] = React.useState(false)
-    const [isVoiceOpen, setIsVoiceOpen] = React.useState(false)
     const [isLoading, setIsLoading] = React.useState(false)
     const scrollAreaRef = React.useRef<HTMLDivElement>(null)
-
-    const handleVoiceTranscribe = async (audioBlob: Blob) => {
-        try {
-            // Placeholder for transcription
-            // In production, send to Whisper API or similar
-            toast.success("Audio recorded successfully!")
-            // You can access the audio blob here to process it
-            console.log("Audio blob size:", audioBlob.size)
-            setIsVoiceOpen(false)
-        } catch (error) {
-            toast.error("Failed to process audio.")
-            console.error(error)
-        }
-    }
-
-    const { isRecording, recordingTime, startRecording, stopRecording } = useVoiceRecording(handleVoiceTranscribe)
 
     React.useEffect(() => {
         const handleNewChat = () => {
@@ -171,30 +153,30 @@ export function ChatInterface() {
     }
 
     const renderInputBox = () => (
-        <div className="relative flex flex-col rounded-lg border border-muted-foreground/20 bg-background shadow-md focus-within:ring-1 focus-within:ring-primary/50">
+        <div className="relative flex flex-col rounded-xl border bg-background shadow-sm focus-within:ring-1 focus-within:ring-ring">
             <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Message Vextron..."
-                className="min-h-14 w-full resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 p-4 pb-12 text-sm"
+                className="min-h-[60px] w-full resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 p-4 pb-10"
                 rows={1}
             />
-            <div className="absolute bottom-2 left-3 flex items-center gap-1">
+            <div className="absolute bottom-2 left-2 flex items-center gap-1">
                 {/* Attach Menu */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground">
                             <Plus className="h-4 w-4" />
-                            <span className="sr-only">Add attachments</span>
+                            <span className="sr-only">Add</span>
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-48">
-                        <DropdownMenuItem onClick={handleFileUpload} className="cursor-pointer">
+                    <DropdownMenuContent align="start">
+                        <DropdownMenuItem onClick={handleFileUpload}>
                             <FileUp className="mr-2 h-4 w-4" />
                             Upload File
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleImageUpload} className="cursor-pointer">
+                        <DropdownMenuItem onClick={handleImageUpload}>
                             <ImagePlus className="mr-2 h-4 w-4" />
                             Upload Image
                         </DropdownMenuItem>
@@ -203,60 +185,45 @@ export function ChatInterface() {
 
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 hidden sm:flex" onClick={handleImageUpload}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hidden sm:flex" onClick={handleImageUpload}>
                             <ImageIcon className="h-4 w-4" />
                             <span className="sr-only">Upload image</span>
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="top">Upload image</TooltipContent>
+                    <TooltipContent>Upload image</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 hidden sm:flex"
-                            onClick={() => setIsVoiceOpen(true)}
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hidden sm:flex">
                             <Mic className="h-4 w-4" />
                             <span className="sr-only">Voice input</span>
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="top">Voice input</TooltipContent>
+                    <TooltipContent>Voice input</TooltipContent>
                 </Tooltip>
             </div>
-            <div className="absolute bottom-2 right-3">
+            <div className="absolute bottom-2 right-2">
                 <Button
                     onClick={handleSend}
                     disabled={!input.trim() || isLoading}
-                    size="sm"
-                    className={cn(
-                        "h-7 w-7 rounded-md p-0 transition-all",
-                        input.trim() && !isLoading
-                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                            : "bg-muted text-muted-foreground cursor-not-allowed"
-                    )}
+                    size="icon"
+                    className={cn("h-8 w-8 rounded-lg transition-all", input.trim() && !isLoading ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}
                 >
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
-                    <span className="sr-only">Send message</span>
+                    <span className="sr-only">Send</span>
                 </Button>
             </div>
         </div>
     );
 
     return (
-        <div className="flex h-full flex-col bg-background">
+        <div className="flex h-full flex-col">
             {/* Header */}
-            <header className="sticky top-0 z-10 flex h-16 w-full items-center justify-between border-b bg-background/95 px-6 backdrop-blur supports-backdrop-filter:bg-background/60 shrink-0">
-                <div className="flex items-center gap-3">
-                    <SidebarTrigger className="h-6 w-6" />
-                    <Separator orientation="vertical" className="h-6 mx-1" />
-                    <div className="flex items-center gap-2">
-                        <div className="flex aspect-square h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-primary to-primary/70 text-primary-foreground">
-                            <Bot className="h-4 w-4" />
-                        </div>
-                        <span className="text-sm font-semibold">Vextron 1.0</span>
-                    </div>
+            <header className="sticky top-0 z-10 flex h-14 w-full items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 shrink-0">
+                <div className="flex items-center gap-2">
+                    <SidebarTrigger />
+                    <Separator orientation="vertical" className="mr-2 h-4" />
+                    <span className="text-sm font-medium text-muted-foreground">Vextron 1.0</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <ModeToggle />
@@ -333,37 +300,35 @@ export function ChatInterface() {
             <div className="flex-1 overflow-hidden flex flex-col">
                 {messages.length === 0 ? (
                     /* Empty State: ChatGPT Style */
-                    <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 max-w-3xl mx-auto w-full">
-                        <div className="flex flex-col items-center gap-4 mb-12 text-center">
-                            <div className="h-20 w-20 rounded-full bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center border-2 border-primary/30">
-                                <Bot className="h-10 w-10 text-primary" />
-                            </div>
-                            <div>
-                                <h1 className="text-4xl font-bold tracking-tight mb-2">How can I help you today?</h1>
-                                <p className="text-muted-foreground text-lg">I can assist with coding, analysis, creative writing, and much more.</p>
-                            </div>
+                    <div className="flex-1 flex flex-col items-center p-4 md:p-8 max-w-4xl mx-auto w-full h-full justify-center gap-8">
+                        <div className="flex flex-col items-center gap-2 mt-auto mb-8">
+                            <Avatar className="h-16 w-16 mb-4 bg-primary text-primary-foreground border-4 border-background shadow-lg">
+                                <Bot className="h-8 w-8" />
+                            </Avatar>
+                            <h1 className="text-3xl font-semibold text-center tracking-tight">How can I help you today?</h1>
+                            <p className="text-muted-foreground text-center">I can assist with coding, analysis, and creative tasks.</p>
                         </div>
 
-                        <div className="w-full relative mb-8 max-w-2xl">
+                        <div className="w-full relative shadow-sm rounded-xl mb-4">
                             {renderInputBox()}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 w-full mb-auto mt-4 px-2">
                             {[
                                 { title: "Explain concepts", desc: "Quantum Computing for beginners", icon: "🧠" },
                                 { title: "Draft an email", desc: "Requesting a deadline extension", icon: "✉️" },
                                 { title: "Debug code", desc: "Find errors in python scripts", icon: "🐛" },
-                                { title: "Brainstorm ideas", desc: "Ideas for a new campaign", icon: "💡" }
+                                { title: "Brainstorm", desc: "Ideas for a new campaign", icon: "💡" }
                             ].map((card, i) => (
                                 <Card
                                     key={i}
-                                    className="p-4 cursor-pointer hover:shadow-md transition-all duration-200 border-muted-foreground/20 hover:border-primary/40 hover:bg-muted/40 flex flex-col gap-3"
+                                    className="p-4 cursor-pointer hover:bg-muted/50 transition-all border-muted-foreground/20 hover:border-primary/30 flex flex-col gap-2 shadow-sm"
                                     onClick={() => setInput(card.title + " - " + card.desc)}
                                 >
                                     <div className="text-2xl">{card.icon}</div>
                                     <div>
                                         <h3 className="font-medium text-sm text-foreground">{card.title}</h3>
-                                        <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{card.desc}</p>
+                                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{card.desc}</p>
                                     </div>
                                 </Card>
                             ))}
@@ -372,59 +337,55 @@ export function ChatInterface() {
                 ) : (
                     /* Active Chat State */
                     <>
-                        <div className="min-h-0 flex-1 overflow-hidden">
-                            <ScrollArea className="h-full w-full">
-                                <div className="mx-auto max-w-3xl space-y-6 py-8 px-4">
-                                    {messages.map((message) => (
-                                        <div
-                                            key={message.id}
-                                            className={cn(
-                                                "flex w-full items-start gap-3",
-                                                message.role === "user" ? "flex-row-reverse" : "flex-row"
+                        <ScrollArea className="flex-1 w-full min-h-0">
+                            <div className="mx-auto max-w-4xl space-y-8 py-8 px-4">
+                                {messages.map((message) => (
+                                    <div
+                                        key={message.id}
+                                        className={cn(
+                                            "flex w-full items-start gap-4",
+                                            message.role === "user" ? "flex-row-reverse" : "flex-row"
+                                        )}
+                                    >
+                                        <Avatar className={cn("h-8 w-8 border", message.role === "assistant" ? "bg-primary text-primary-foreground" : "bg-muted")}>
+                                            {message.role === "assistant" ? (
+                                                <Bot className="h-5 w-5" />
+                                            ) : (
+                                                <User className="h-5 w-5" />
                                             )}
-                                        >
-                                            <div className="shrink-0">
-                                                <Avatar className={cn("h-8 w-8 border", message.role === "assistant" ? "bg-linear-to-br from-primary to-primary/70 text-primary-foreground" : "bg-muted/50 border-muted-foreground/20")}>
-                                                    {message.role === "assistant" ? (
-                                                        <Bot className="h-5 w-5" />
-                                                    ) : (
-                                                        <User className="h-5 w-5" />
-                                                    )}
-                                                </Avatar>
-                                            </div>
-                                            <div className={cn("flex flex-col gap-2 max-w-xl", message.role === "user" ? "items-end" : "items-start")}>
-                                                <div
-                                                    className={cn(
-                                                        "rounded-xl px-4 py-2.5 text-sm",
-                                                        message.role === "user"
-                                                            ? "bg-primary text-primary-foreground rounded-br-none"
-                                                            : "bg-muted border border-muted-foreground/10 text-foreground rounded-bl-none"
-                                                    )}
-                                                >
-                                                    <div className={cn(
-                                                        "prose max-w-none prose-sm dark:prose-invert prose-p:leading-relaxed prose-pre:p-0",
-                                                        message.role === "user" ? "text-primary-foreground" : "text-foreground"
-                                                    )}>
-                                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                                            {message.content}
-                                                        </ReactMarkdown>
-                                                    </div>
+                                        </Avatar>
+                                        <div className={cn("flex max-w-[80%] flex-col gap-2", message.role === "user" ? "items-end" : "items-start")}>
+                                            <div
+                                                className={cn(
+                                                    "rounded-2xl px-4 py-3 text-sm shadow-sm",
+                                                    message.role === "user"
+                                                        ? "bg-primary text-primary-foreground"
+                                                        : "bg-muted border border-muted-foreground/10 text-foreground"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "prose max-w-none text-wrap dark:prose-invert prose-p:leading-relaxed prose-pre:p-0",
+                                                    message.role === "user" ? "prose-p:text-primary-foreground text-primary-foreground" : "text-foreground"
+                                                )}>
+                                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                        {message.content}
+                                                    </ReactMarkdown>
                                                 </div>
-                                                <span className="text-xs text-muted-foreground px-2">
-                                                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
                                             </div>
+                                            <span className="text-xs text-muted-foreground">
+                                                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
                                         </div>
-                                    ))}
-                                    <div ref={scrollAreaRef} />
-                                </div>
-                            </ScrollArea>
-                        </div>
+                                    </div>
+                                ))}
+                                <div ref={scrollAreaRef} />
+                            </div>
+                        </ScrollArea>
 
-                        <div className="w-full shrink-0 border-t bg-background p-4 backdrop-blur supports-backdrop-filter:bg-background/95">
-                            <div className="mx-auto max-w-3xl space-y-3">
+                        <div className="w-full shrink-0 p-4 pt-2 border-t bg-background/95 backdrop-blur">
+                            <div className="mx-auto max-w-4xl">
                                 {renderInputBox()}
-                                <p className="text-center text-xs text-muted-foreground">
+                                <p className="mt-2 text-center text-xs text-muted-foreground">
                                     Vextron can make mistakes. Consider checking important information.
                                 </p>
                             </div>
@@ -432,113 +393,6 @@ export function ChatInterface() {
                     </>
                 )}
             </div>
-
-            {/* Voice Recording Modal */}
-            <Dialog open={isVoiceOpen} onOpenChange={setIsVoiceOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Voice Input</DialogTitle>
-                        <DialogDescription>
-                            Click the button below to start recording your message
-                        </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="flex flex-col items-center gap-6 py-8">
-                        {/* Visual Recording Indicator */}
-                        <div className="flex flex-col items-center gap-4">
-                            <div className={cn(
-                                "w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300",
-                                isRecording 
-                                    ? "bg-red-100 dark:bg-red-950 scale-110" 
-                                    : "bg-primary/10 dark:bg-primary/20"
-                            )}>
-                                <div className={cn(
-                                    "w-16 h-16 rounded-full flex items-center justify-center",
-                                    isRecording
-                                        ? "bg-red-500 animate-pulse"
-                                        : "bg-primary"
-                                )}>
-                                    <Mic className="w-8 h-8 text-white" />
-                                </div>
-                            </div>
-                            
-                            {isRecording && (
-                                <div className="text-center">
-                                    <p className="text-2xl font-bold text-red-500">{recordingTime}s</p>
-                                    <p className="text-sm text-muted-foreground mt-1">Recording in progress...</p>
-                                </div>
-                            )}
-                            
-                            {!isRecording && (
-                                <div className="text-center">
-                                    <p className="text-sm text-muted-foreground">Ready to record</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Waveform Visualization */}
-                        {isRecording && (
-                            <div className="flex items-center justify-center gap-1 w-full">
-                                {[...Array(5)].map((_, i) => (
-                                    <div
-                                        key={i}
-                                        className="bg-primary rounded-sm transition-all"
-                                        style={{
-                                            width: "4px",
-                                            height: `${20 + (i % 2) * 20}px`,
-                                            animation: `wave 0.6s ease-in-out ${i * 0.1}s infinite`,
-                                        }}
-                                    />
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-3 w-full">
-                            <Button
-                                variant="outline"
-                                className="flex-1"
-                                onClick={() => {
-                                    if (isRecording) {
-                                        stopRecording()
-                                    }
-                                    setIsVoiceOpen(false)
-                                }}
-                            >
-                                {isRecording ? "Cancel" : "Close"}
-                            </Button>
-                            <Button
-                                className={cn(
-                                    "flex-1",
-                                    isRecording
-                                        ? "bg-red-500 hover:bg-red-600"
-                                        : "bg-primary hover:bg-primary/90"
-                                )}
-                                onClick={isRecording ? stopRecording : startRecording}
-                            >
-                                {isRecording ? (
-                                    <>
-                                        <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse" />
-                                        Stop Recording
-                                    </>
-                                ) : (
-                                    <>
-                                        <Mic className="w-4 h-4 mr-2" />
-                                        Start Recording
-                                    </>
-                                )}
-                            </Button>
-                        </div>
-                    </div>
-                    
-                    <style>{`
-                        @keyframes wave {
-                            0%, 100% { transform: scaleY(0.5); opacity: 0.5; }
-                            50% { transform: scaleY(1); opacity: 1; }
-                        }
-                    `}</style>
-                </DialogContent>
-            </Dialog>
         </div>
     )
 }
