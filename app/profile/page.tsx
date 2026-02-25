@@ -1,135 +1,422 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import AvatarEditor from "react-avatar-editor";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Mail, User, Shield, Key, Bell, Camera } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Mail, User, Shield, Key, Bell, Camera, Check, ExternalLink, Zap, CreditCard, LogOut, Loader2 } from "lucide-react";
 
 export default function ProfilePage() {
-    return (
-        <div className="container mx-auto px-4 py-12 max-w-5xl">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">Profile Settings</h1>
-                <p className="text-muted-foreground mt-2">Manage your account settings and preferences.</p>
-            </div>
+    const [activeTab, setActiveTab] = useState("general");
+    const [isLoading, setIsLoading] = useState(true);
+    const [user, setUser] = useState({
+        first_name: "",
+        last_name: "",
+        username: "",
+        email: "",
+        profile_picture: ""
+    });
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                {/* Navigation Sidebar */}
-                <div className="col-span-1 space-y-2">
-                    <nav className="flex flex-col gap-2">
-                        <Button variant="secondary" className="justify-start gap-2 shadow-sm">
-                            <User className="h-4 w-4" />
-                            General
-                        </Button>
-                        <Button variant="ghost" className="justify-start gap-2">
-                            <Shield className="h-4 w-4" />
-                            Security
-                        </Button>
-                        <Button variant="ghost" className="justify-start gap-2">
-                            <Bell className="h-4 w-4" />
-                            Notifications
-                        </Button>
-                        <Button variant="ghost" className="justify-start gap-2">
-                            <Key className="h-4 w-4" />
-                            API Keys
-                        </Button>
-                    </nav>
-                </div>
+    // Avatar upload states
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [imgFile, setImgFile] = useState<File | null>(null);
+    const [imgUrl, setImgUrl] = useState<string>("");
+    const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+    const [scale, setScale] = useState(1.2);
+    const editorRef = useRef<AvatarEditor | null>(null);
 
-                {/* Main Content */}
-                <div className="col-span-1 md:col-span-3 space-y-8">
-                    {/* Public Profile Section */}
-                    <Card className="border-border/50 shadow-sm transition-all hover:shadow-md">
-                        <CardHeader>
-                            <CardTitle>Public Profile</CardTitle>
-                            <CardDescription>
-                                This information will be displayed publicly so be careful what you share.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="flex flex-col sm:flex-row items-center gap-6">
-                                <div className="relative group cursor-pointer">
-                                    <Avatar className="h-24 w-24 border-2 border-primary/10 transition-all group-hover:border-primary/30">
-                                        <AvatarImage src="https://github.com/shadcn.png" alt="Avatar" />
-                                        <AvatarFallback>UN</AvatarFallback>
-                                    </Avatar>
-                                    <div className="absolute inset-0 bg-background/60 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Camera className="h-6 w-6 text-foreground" />
+    const tabs = [
+        { id: "general", label: "General", icon: User },
+        { id: "notifications", label: "Notifications", icon: Bell },
+    ];
+
+    useEffect(() => {
+        fetch("http://localhost:8000/api/user")
+            .then(res => res.json())
+            .then(data => {
+                if (data && !data.error) {
+                    setUser({
+                        first_name: data.first_name || "",
+                        last_name: data.last_name || "",
+                        username: data.username || "",
+                        email: data.email || "",
+                        profile_picture: data.profile_picture ? `http://localhost:8000${data.profile_picture}` : ""
+                    });
+                }
+                setIsLoading(false);
+            })
+            .catch(err => {
+                console.error(err);
+                setIsLoading(false);
+                toast.error("Failed to load profile data.");
+            });
+    }, []);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { id, value } = e.target;
+        // Transform the DOM id to db column name (e.g. first-name -> first_name)
+        const key = id.replace("-", "_");
+        setUser(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleSaveProfile = async () => {
+        try {
+            const res = await fetch("http://localhost:8000/api/user", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    first_name: user.first_name,
+                    last_name: user.last_name,
+                    username: user.username,
+                    email: user.email
+                })
+            });
+            if (res.ok) {
+                toast.success("Profile saved successfully!");
+                window.dispatchEvent(new CustomEvent('profile-updated'));
+            } else {
+                toast.error("Failed to update profile.");
+            }
+        } catch (err) {
+            toast.error("An error occurred while saving.");
+        }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            setImgFile(file);
+            setImgUrl(URL.createObjectURL(file));
+            setScale(1.2);
+            setIsCropModalOpen(true);
+            // Reset input so selecting the same file triggers onChange again
+            e.target.value = "";
+        }
+    };
+
+    const handleSaveAvatar = async () => {
+        if (editorRef.current) {
+            const canvasScaled = editorRef.current.getImageScaledToCanvas();
+            canvasScaled.toBlob(async (blob) => {
+                if (!blob) return;
+                const formData = new FormData();
+                formData.append("avatar", blob, imgFile?.name || "avatar.png");
+
+                try {
+                    setIsCropModalOpen(false);
+                    const toastId = toast.loading("Uploading avatar...");
+                    const res = await fetch("http://localhost:8000/api/user/avatar", {
+                        method: "POST",
+                        body: formData
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setUser(prev => ({ ...prev, profile_picture: `http://localhost:8000${data.profile_picture}?t=${Date.now()}` }));
+                        toast.success("Avatar updated!", { id: toastId });
+                        window.dispatchEvent(new CustomEvent('profile-updated'));
+                    } else {
+                        toast.error("Failed to upload avatar.", { id: toastId });
+                    }
+                } catch (err) {
+                    toast.error("An error occurred during upload.");
+                }
+            });
+        }
+    };
+
+    const renderTabContent = () => {
+        switch (activeTab) {
+            case "general":
+                return (
+                    <motion.div
+                        key="general"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-8"
+                    >
+                        {/* Public Profile Section */}
+                        <Card className="border-border/50 shadow-sm transition-all hover:shadow-md backdrop-blur-sm bg-card/95">
+                            <CardHeader>
+                                <CardTitle>Public Profile</CardTitle>
+                                <CardDescription>
+                                    This information will be displayed publicly so be careful what you share.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="flex flex-col sm:flex-row items-center gap-6">
+                                    <div
+                                        className="relative group cursor-pointer inline-block"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <Avatar className="h-24 w-24 border-4 border-background shadow-xl transition-all group-hover:scale-105 group-hover:shadow-primary/25">
+                                            <AvatarImage src={user.profile_picture || "https://github.com/shadcn.png"} alt="Avatar" />
+                                            <AvatarFallback className="bg-primary/10 text-primary text-xl">
+                                                {(user.first_name?.[0] || 'A') + (user.last_name?.[0] || 'S')}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="absolute inset-0 bg-background/60 backdrop-blur-sm rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Camera className="h-6 w-6 text-foreground mb-1" />
+                                            <span className="text-[10px] font-medium text-foreground">Upload</span>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="space-y-1 text-center sm:text-left">
-                                    <h3 className="font-medium text-foreground">Profile Picture</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        JPG, GIF or PNG. 1MB max.
-                                    </p>
-                                    <div className="pt-2 flex flex-wrap gap-2 justify-center sm:justify-start">
-                                        <Button variant="outline" size="sm">Upload new</Button>
-                                        <Button variant="ghost" size="sm" className="text-destructive">Remove</Button>
-                                    </div>
-                                </div>
-                            </div>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleFileChange}
+                                    />
 
-                            <Separator className="bg-border/50" />
-
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="first-name">First Name</Label>
-                                    <Input id="first-name" placeholder="John" defaultValue="Anil" className="bg-background/50 focus:bg-background transition-colors" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="last-name">Last Name</Label>
-                                    <Input id="last-name" placeholder="Doe" defaultValue="Sai" className="bg-background/50 focus:bg-background transition-colors" />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="username">Username</Label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">@</span>
-                                    <Input id="username" placeholder="johndoe" defaultValue="anilsai" className="pl-8 bg-background/50 focus:bg-background transition-colors" />
-                                </div>
-                            </div>
-                        </CardContent>
-                        <CardFooter className="bg-muted/30 border-t border-border/50 flex justify-end gap-2 p-4">
-                            <Button variant="outline">Discard</Button>
-                            <Button>Save Changes</Button>
-                        </CardFooter>
-                    </Card>
-
-                    {/* Email Settings Section */}
-                    <Card className="border-border/50 shadow-sm transition-all hover:shadow-md">
-                        <CardHeader>
-                            <CardTitle>Email Addresses</CardTitle>
-                            <CardDescription>
-                                Manage your email addresses and preferences.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex items-center justify-between p-4 border border-border/50 rounded-lg bg-background/50">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-primary/10 p-2 rounded-full">
-                                        <Mail className="h-4 w-4 text-primary" />
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-sm text-foreground">hello@anilsai.com</p>
-                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                            <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span> Primary Email
+                                    <div className="space-y-1 text-center sm:text-left flex-1">
+                                        <h3 className="font-medium text-foreground text-lg">Profile Picture</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            JPG, GIF or PNG. 1MB max.
                                         </p>
+                                        <div className="pt-2 flex flex-wrap gap-2 justify-center sm:justify-start">
+                                            <Button variant="outline" size="sm" className="shadow-sm" onClick={() => fileInputRef.current?.click()}>Upload new</Button>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10">Remove</Button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="space-y-2 pt-2">
-                                <Label htmlFor="add-email">Add new email</Label>
-                                <div className="flex gap-2">
-                                    <Input id="add-email" placeholder="example@email.com" className="bg-background/50 focus:bg-background transition-colors" />
-                                    <Button variant="secondary">Add</Button>
+
+                                <Separator className="bg-border/50" />
+
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="first-name">First Name</Label>
+                                        <Input id="first-name" placeholder="John" value={user.first_name} onChange={handleChange} className="bg-background/50 focus:bg-background transition-colors" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="last-name">Last Name</Label>
+                                        <Input id="last-name" placeholder="Doe" value={user.last_name} onChange={handleChange} className="bg-background/50 focus:bg-background transition-colors" />
+                                    </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="username">Username</Label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">@</span>
+                                        <Input id="username" placeholder="johndoe" value={user.username} onChange={handleChange} className="pl-8 bg-background/50 focus:bg-background transition-colors focus-visible:ring-primary" />
+                                    </div>
+                                    <p className="text-[13px] text-muted-foreground flex items-center gap-1 mt-1">
+                                        Your profile URL: <span className="text-foreground">vextron.ai/@{user.username || "username"}</span>
+                                        <ExternalLink className="h-3 w-3 inline cursor-pointer text-muted-foreground hover:text-primary transition-colors" />
+                                    </p>
+                                </div>
+                            </CardContent>
+                            <CardFooter className="bg-muted/30 border-t border-border/50 flex justify-end gap-2 p-4">
+                                <Button variant="ghost">Discard</Button>
+                                <Button onClick={handleSaveProfile} className="shadow-md shadow-primary/20 transition-all hover:shadow-primary/40">Save Changes</Button>
+                            </CardFooter>
+                        </Card>
+
+                        {/* Email Settings Section */}
+                        <Card className="border-border/50 shadow-sm transition-all hover:shadow-md backdrop-blur-sm bg-card/95">
+                            <CardHeader>
+                                <CardTitle>Email Addresses</CardTitle>
+                                <CardDescription>
+                                    Manage your email addresses and preferences.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border border-border/50 rounded-xl bg-background/50 gap-4 transition-all hover:border-primary/30">
+                                    <div className="flex items-center gap-3 w-full">
+                                        <div className="bg-primary/10 p-2.5 rounded-full ring-1 ring-primary/20 shrink-0">
+                                            <Mail className="h-4 w-4 text-primary" />
+                                        </div>
+                                        <div className="flex-1 space-y-2">
+                                            <Input id="email" value={user.email} onChange={handleChange} className="bg-background/50 font-medium text-sm text-foreground focus:bg-background w-full max-w-sm" />
+                                            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                                                <span className="relative flex h-2 w-2">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                                </span>
+                                                Primary Email
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                            <CardFooter className="bg-muted/30 border-t border-border/50 flex justify-end gap-2 p-4">
+                                <Button onClick={handleSaveProfile}>Update Email</Button>
+                            </CardFooter>
+                        </Card>
+                    </motion.div>
+                );
+
+            default:
+                return (
+                    <motion.div
+                        key={activeTab}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-8"
+                    >
+                        <Card className="border-dashed border-2 border-border/50 bg-transparent shadow-none">
+                            <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+                                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                                    <Shield className="h-6 w-6 text-primary" />
+                                </div>
+                                <h3 className="text-xl font-medium">Coming Soon</h3>
+                                <p className="text-muted-foreground mt-2 max-w-sm">
+                                    We're still working on this section. Check back later for updates to these settings.
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                );
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-background relative overflow-hidden pb-20">
+            {/* Background Decorations */}
+            <div className="absolute top-0 inset-x-0 h-96 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none -z-10" />
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl opacity-50 pointer-events-none -z-10 translate-x-1/2 -translate-y-1/2" />
+
+            {/* Elegant Banner */}
+            <div className="h-48 w-full bg-gradient-to-r from-blue-600/90 via-indigo-600/90 to-purple-600/90 relative">
+                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
+                <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent"></div>
+            </div>
+
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl -mt-20 relative z-10">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-6 mb-12">
+                    <div className="flex flex-col md:flex-row items-center md:items-end gap-6 w-full text-center md:text-left">
+                        <Avatar className="h-32 w-32 border-4 border-background shadow-2xl bg-muted">
+                            <AvatarImage src={user.profile_picture || "https://github.com/shadcn.png"} alt="Avatar" />
+                            <AvatarFallback className="text-3xl text-primary font-light">
+                                {(user.first_name?.[0] || 'A') + (user.last_name?.[0] || 'S')}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="pb-2 space-y-1">
+                            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                                {user.first_name || "Anil"} {user.last_name || "Sai"}
+                            </h1>
+                            <p className="text-lg text-muted-foreground font-medium flex items-center justify-center md:justify-start gap-2">
+                                @{user.username || "anilsai"}
+                                <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Pro Plan</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                    {/* Navigation Sidebar */}
+                    <div className="md:col-span-3 lg:col-span-3">
+                        <div className="sticky top-24">
+                            <nav className="flex flex-row md:flex-col gap-1 overflow-x-auto pb-4 md:pb-0 scrollbar-hide">
+                                {tabs.map((tab) => {
+                                    const Icon = tab.icon;
+                                    const isActive = activeTab === tab.id;
+                                    return (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => setActiveTab(tab.id)}
+                                            className={`relative flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap text-left w-full
+                                                ${isActive
+                                                    ? 'text-primary bg-primary/10 shadow-sm'
+                                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                                }`}
+                                        >
+                                            <Icon className={`h-4 w-4 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                                            {tab.label}
+                                            {isActive && (
+                                                <motion.div
+                                                    layoutId="activeTabIndicator"
+                                                    className="absolute inset-0 border-2 border-primary/20 rounded-lg"
+                                                    initial={false}
+                                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                />
+                                            )}
+                                        </button>
+                                    );
+                                })}
+
+                                <Separator className="my-2 hidden md:block" />
+
+                                <button className="hidden md:flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors w-full text-left">
+                                    <LogOut className="h-4 w-4" />
+                                    Log out
+                                </button>
+                            </nav>
+                        </div>
+                    </div>
+
+                    {/* Main Content Area */}
+                    <div className="md:col-span-9 lg:col-span-8 lg:col-start-4">
+                        <AnimatePresence mode="wait">
+                            {renderTabContent()}
+                        </AnimatePresence>
+                    </div>
                 </div>
             </div>
+
+            {/* Crop Settings Modal */}
+            <Dialog open={isCropModalOpen} onOpenChange={setIsCropModalOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Adjust Image</DialogTitle>
+                        <DialogDescription>
+                            Crop and zoom your new profile picture before saving.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {imgUrl && (
+                        <div className="flex flex-col items-center justify-center space-y-4 py-4">
+                            <div className="relative rounded-lg overflow-hidden border">
+                                <AvatarEditor
+                                    ref={editorRef}
+                                    image={imgUrl}
+                                    width={250}
+                                    height={250}
+                                    border={30}
+                                    borderRadius={125} // half of 250 for perfect circle
+                                    color={[0, 0, 0, 0.6]} // RGBA
+                                    scale={scale}
+                                    rotate={0}
+                                />
+                            </div>
+                            <div className="w-full max-w-[250px] space-y-2">
+                                <Label className="text-sm text-muted-foreground">Zoom</Label>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="2"
+                                    step="0.01"
+                                    value={scale}
+                                    onChange={(e) => setScale(parseFloat(e.target.value))}
+                                    className="w-full accent-primary"
+                                />
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsCropModalOpen(false)}>Cancel</Button>
+                        <Button onClick={handleSaveAvatar}>Upload Photo</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }
