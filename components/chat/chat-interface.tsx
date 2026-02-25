@@ -5,6 +5,7 @@ import { ArrowUp, Bot, FileUp, Image as ImageIcon, ImagePlus, Loader2, LogOut, M
 import { toast } from "sonner"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -36,6 +37,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ModeToggle } from "@/components/mode-toggle"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
 interface Message {
     id: string
     role: "user" | "assistant"
@@ -50,16 +53,45 @@ export function ChatInterface() {
     const [isLoading, setIsLoading] = React.useState(false)
     const scrollAreaRef = React.useRef<HTMLDivElement>(null)
 
+    const router = useRouter()
+    const searchParams = useSearchParams()
+    const chatId = searchParams?.get('id')
+    const isNewChatRef = React.useRef(false)
+
+    // Fetch existing messages when chatId changes
     React.useEffect(() => {
-        const handleNewChat = () => {
+        if (!chatId) {
             setMessages([])
-            setInput("")
-            toast.success("Started a new chat")
+            return
         }
 
-        window.addEventListener('new-chat', handleNewChat)
-        return () => window.removeEventListener('new-chat', handleNewChat)
-    }, [])
+        if (isNewChatRef.current) {
+            // We just created this chat, skip fetching so we don't wipe optimistic UI
+            isNewChatRef.current = false
+            return
+        }
+
+        const fetchMessages = async () => {
+            try {
+                const res = await fetch(`${API_URL}/api/chats/${chatId}/messages`)
+                if (res.ok) {
+                    const data = await res.json()
+                    setMessages(data.map((msg: any) => ({
+                        id: msg.id.toString(),
+                        role: msg.role,
+                        content: msg.content,
+                        timestamp: new Date(msg.created_at)
+                    })))
+                } else {
+                    toast.error("Failed to load conversation")
+                }
+            } catch (err) {
+                console.error(err)
+                toast.error("Failed to fetch messages")
+            }
+        }
+        fetchMessages()
+    }, [chatId])
 
     React.useEffect(() => {
         if (scrollAreaRef.current) {
@@ -83,45 +115,64 @@ export function ChatInterface() {
     const handleSend = async () => {
         if (!input.trim() || isLoading) return
 
-        if (messages.length === 0) {
-            window.dispatchEvent(new CustomEvent('add-chat', { detail: { title: input } }))
-        }
+        let currentChatId = chatId
+        const userInput = input
 
+        // Optimistic UI update
         const newMessage: Message = {
             id: Date.now().toString(),
             role: "user",
-            content: input,
+            content: userInput,
             timestamp: new Date(),
         }
 
-        const newMessages = [...messages, newMessage]
-        setMessages(newMessages)
+        setMessages(prev => [...prev, newMessage])
         setInput("")
         setIsLoading(true)
 
         try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: newMessages })
-            })
+            // 1. Create chat if it doesn't exist
+            if (!currentChatId) {
+                const res = await fetch(`${API_URL}/api/chats`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: userInput })
+                })
 
-            if (!response.ok) throw new Error("Failed to fetch response")
-            if (!response.body) throw new Error("No response body")
+                if (res.ok) {
+                    const data = await res.json()
+                    currentChatId = data.id.toString()
+                    isNewChatRef.current = true
+                    router.replace(`/chat?id=${currentChatId}`)
+                    window.dispatchEvent(new CustomEvent('refresh-chats'))
+                } else {
+                    throw new Error("Failed to create chat")
+                }
+            }
 
-            const reader = response.body.getReader()
-            const decoder = new TextDecoder("utf-8")
-            let done = false
-            let aiResponseText = ""
-
+            // 2. Prepare for Assistant Response Streaming
             const aiMessageId = (Date.now() + 1).toString()
-
             setMessages((prev) => [...prev, {
                 id: aiMessageId,
                 role: "assistant",
                 content: "",
                 timestamp: new Date()
             }])
+
+            // 3. Send message to backend and stream response
+            const response = await fetch(`${API_URL}/api/chats/${currentChatId}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userInput })
+            })
+
+            if (!response.ok) throw new Error("Failed to post message")
+            if (!response.body) throw new Error("No response body")
+
+            const reader = response.body.getReader()
+            const decoder = new TextDecoder("utf-8")
+            let done = false
+            let aiResponseText = ""
 
             while (!done) {
                 const { value, done: readerDone } = await reader.read()
@@ -137,6 +188,10 @@ export function ChatInterface() {
                     )
                 }
             }
+
+            // Refresh sidebar to bump chat to top
+            window.dispatchEvent(new CustomEvent('refresh-chats'))
+
         } catch (error) {
             toast.error("An error occurred while communicating with AI.")
             console.error(error)
@@ -163,7 +218,6 @@ export function ChatInterface() {
                 rows={1}
             />
             <div className="absolute bottom-2 left-2 flex items-center gap-1">
-                {/* Attach Menu */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground">
@@ -249,7 +303,7 @@ export function ChatInterface() {
                                     </Label>
                                     <Input
                                         id="link"
-                                        defaultValue="https://vextron.ai/chat/share/12345"
+                                        defaultValue={`https://vextron.ai/chat/share/${chatId || '12345'}`}
                                         readOnly
                                     />
                                 </div>
@@ -270,7 +324,6 @@ export function ChatInterface() {
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                                 <Avatar className="h-8 w-8 transition-opacity hover:opacity-80">
-                                    <AvatarImage src="/placeholder-user.jpg" alt="User" />
                                     <AvatarFallback>U</AvatarFallback>
                                 </Avatar>
                             </Button>

@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { MessageSquare, Plus, Settings, User, Search } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import {
     Sidebar,
@@ -20,62 +21,39 @@ import {
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 
-// Dummy data for chat history
-const initialHistory = [
-    {
-        label: "Today",
-        items: [
-            { title: "React Component Structure", url: "#" },
-            { title: "Tailwind CSS Grid", url: "#" },
-            { title: "Next.js Routing", url: "#" },
-        ],
-    },
-    {
-        label: "Yesterday",
-        items: [
-            { title: "AI Integration Guide", url: "#" },
-            { title: "Database Schema Design", url: "#" },
-        ],
-    },
-    {
-        label: "Previous 7 Days",
-        items: [
-            { title: "Project Vextron Ideas", url: "#" },
-            { title: "Debugging Auth Flow", url: "#" },
-            { title: "Deployment Strategies", url: "#" },
-        ],
-    },
-]
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export function AppSidebar() {
-    const [chatHistory, setChatHistory] = React.useState(initialHistory)
+    const [chatHistory, setChatHistory] = React.useState<any[]>([])
     const [query, setQuery] = React.useState("")
     const [debouncedQuery, setDebouncedQuery] = React.useState("")
     const [shortcut, setShortcut] = React.useState("Ctrl+K")
     const { isMobile, setOpenMobile } = useSidebar()
 
-    React.useEffect(() => {
-        const handleAddChat = (e: any) => {
-            const title = e.detail?.title || "New Chat"
-            const shortTitle = title.length > 25 ? title.substring(0, 25) + '...' : title
-            setChatHistory(prev => {
-                const todayGroupIndex = prev.findIndex(g => g.label === "Today")
-                if (todayGroupIndex >= 0) {
-                    const newHistory = [...prev]
-                    newHistory[todayGroupIndex] = {
-                        ...newHistory[todayGroupIndex],
-                        items: [{ title: shortTitle, url: "#" }, ...newHistory[todayGroupIndex].items]
-                    }
-                    return newHistory
-                }
-                return [{ label: "Today", items: [{ title: shortTitle, url: "#" }] }, ...prev]
-            })
+    const router = useRouter()
+    const searchParams = useSearchParams()
+    const activeChatId = searchParams?.get('id')
+
+    const fetchChats = async () => {
+        try {
+            const res = await fetch(`${API_URL}/api/chats`)
+            if (res.ok) {
+                const data = await res.json()
+                setChatHistory(data)
+            }
+        } catch (error) {
+            console.error("Failed to fetch chats", error)
         }
-        window.addEventListener('add-chat', handleAddChat)
-        return () => window.removeEventListener('add-chat', handleAddChat)
+    }
+
+    React.useEffect(() => {
+        fetchChats()
+
+        const handleRefresh = () => fetchChats()
+        window.addEventListener('refresh-chats', handleRefresh)
+        return () => window.removeEventListener('refresh-chats', handleRefresh)
     }, [])
 
-    // Debounce search query
     React.useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedQuery(query)
@@ -83,7 +61,6 @@ export function AppSidebar() {
         return () => clearTimeout(timer)
     }, [query])
 
-    // Handle keyboard shortcut and OS detection
     React.useEffect(() => {
         if (typeof window !== "undefined") {
             const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0
@@ -104,19 +81,25 @@ export function AppSidebar() {
         return () => document.removeEventListener("keydown", handleKeyDown)
     }, [])
 
-    // Filter history based on debounced query
     const filteredHistory = React.useMemo(() => {
-        if (!debouncedQuery) return chatHistory
+        let history = chatHistory
+        if (debouncedQuery) {
+            history = history.filter((item) =>
+                item.title.toLowerCase().includes(debouncedQuery.toLowerCase())
+            )
+        }
 
-        return chatHistory
-            .map((group) => ({
-                ...group,
-                items: group.items.filter((item) =>
-                    item.title.toLowerCase().includes(debouncedQuery.toLowerCase())
-                ),
-            }))
-            .filter((group) => group.items.length > 0)
-    }, [debouncedQuery])
+        // Group by Today, Past 7 Days, Older
+        const groups = [
+            { label: "Recent", items: [] as any[] }
+        ]
+
+        history.forEach(chat => {
+            groups[0].items.push(chat)
+        })
+
+        return groups.filter(g => g.items.length > 0)
+    }, [debouncedQuery, chatHistory])
 
     return (
         <Sidebar>
@@ -158,7 +141,7 @@ export function AppSidebar() {
                         className="w-full justify-start gap-2"
                         variant="outline"
                         onClick={() => {
-                            window.dispatchEvent(new CustomEvent('new-chat'))
+                            router.push('/chat')
                             if (isMobile) {
                                 setOpenMobile(false)
                             }
@@ -181,12 +164,18 @@ export function AppSidebar() {
                             <SidebarGroupContent>
                                 <SidebarMenu>
                                     {group.items.map((item) => (
-                                        <SidebarMenuItem key={item.title}>
-                                            <SidebarMenuButton asChild>
-                                                <a href={item.url}>
+                                        <SidebarMenuItem key={item.id}>
+                                            <SidebarMenuButton
+                                                asChild
+                                                isActive={activeChatId === item.id.toString()}
+                                            >
+                                                <button onClick={() => {
+                                                    router.push(`/chat?id=${item.id}`)
+                                                    if (isMobile) setOpenMobile(false)
+                                                }}>
                                                     <MessageSquare className="mr-2 h-4 w-4 opacity-50" />
-                                                    <span>{item.title}</span>
-                                                </a>
+                                                    <span className="truncate">{item.title}</span>
+                                                </button>
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>
                                     ))}
