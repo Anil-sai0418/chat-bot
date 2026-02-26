@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ModeToggle } from "@/components/mode-toggle"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { useAuth } from "@/context/AuthContext"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -52,6 +53,7 @@ export function ChatInterface() {
     const [isShareOpen, setIsShareOpen] = React.useState(false)
     const [isLoading, setIsLoading] = React.useState(false)
     const scrollAreaRef = React.useRef<HTMLDivElement>(null)
+    const { token, user, logout } = useAuth()
 
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -73,7 +75,11 @@ export function ChatInterface() {
 
         const fetchMessages = async () => {
             try {
-                const res = await fetch(`${API_URL}/api/chats/${chatId}/messages`)
+                const res = await fetch(`${API_URL}/api/chats/${chatId}/messages`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
                 if (res.ok) {
                     const data = await res.json()
                     setMessages(data.map((msg: any) => ({
@@ -135,7 +141,10 @@ export function ChatInterface() {
             if (!currentChatId) {
                 const res = await fetch(`${API_URL}/api/chats`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({ title: userInput })
                 })
 
@@ -162,7 +171,10 @@ export function ChatInterface() {
             // 3. Send message to backend and stream response
             const response = await fetch(`${API_URL}/api/chats/${currentChatId}/messages`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ message: userInput })
             })
 
@@ -324,23 +336,24 @@ export function ChatInterface() {
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                                 <Avatar className="h-8 w-8 transition-opacity hover:opacity-80">
-                                    <AvatarFallback>U</AvatarFallback>
+                                    <AvatarImage src={user?.profile_picture ? `http://localhost:8000${user.profile_picture}` : "https://github.com/shadcn.png"} alt="@user" />
+                                    <AvatarFallback>{user ? `${user.first_name?.[0] || 'A'}${user.last_name?.[0] || 'S'}` : 'U'}</AvatarFallback>
                                 </Avatar>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>My Account</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => toast.info("Navigating to Profile...")}>
+                            <DropdownMenuItem onClick={() => router.push("/profile")}>
                                 <User className="mr-2 h-4 w-4" />
                                 Profile
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toast.info("Opening Settings...")}>
+                            <DropdownMenuItem onClick={() => router.push("/settings")}>
                                 <Settings className="mr-2 h-4 w-4" />
                                 Settings
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive mb-1" onClick={() => toast.error("Logged out")}>
+                            <DropdownMenuItem className="text-destructive mb-1" onClick={() => logout()}>
                                 <LogOut className="mr-2 h-4 w-4" />
                                 Log out
                             </DropdownMenuItem>

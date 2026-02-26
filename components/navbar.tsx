@@ -14,51 +14,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ModeToggle } from "@/components/mode-toggle";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Navbar() {
-    const [user, setUser] = useState({
-        first_name: "Anil",
-        last_name: "Sai",
-        email: "hello@anilsai.com",
-        profile_picture: ""
-    });
+    const { user, logout, loading } = useAuth();
 
-    useEffect(() => {
-        // Fetch user data from backend
-        fetch("http://localhost:8000/api/user", { cache: "no-store" })
-            .then(res => res.json())
-            .then(data => {
-                if (data && !data.error) {
-                    setUser({
-                        first_name: data.first_name || "Anil",
-                        last_name: data.last_name || "Sai",
-                        email: data.email || "hello@anilsai.com",
-                        profile_picture: data.profile_picture ? `http://localhost:8000${data.profile_picture}` : ""
-                    });
-                }
-            })
-            .catch(err => console.error("Failed to load user in navbar", err));
-
-        // Optional: Listen for custom events if profile updates
-        const handleProfileUpdate = () => {
-            fetch("http://localhost:8000/api/user", { cache: "no-store", headers: { 'Cache-Control': 'no-cache' } })
-                .then(res => res.json())
-                .then(data => {
-                    if (data && !data.error) {
-                        setUser({
-                            first_name: data.first_name || "Anil",
-                            last_name: data.last_name || "Sai",
-                            email: data.email || "hello@anilsai.com",
-                            profile_picture: data.profile_picture ? `http://localhost:8000${data.profile_picture}?t=${Date.now()}` : ""
-                        });
-                    }
-                });
-        };
-        window.addEventListener('profile-updated', handleProfileUpdate);
-        return () => window.removeEventListener('profile-updated', handleProfileUpdate);
-    }, []);
-
-    const initials = (user.first_name?.[0] || 'A') + (user.last_name?.[0] || 'S');
+    const initials = user ? (user.first_name?.[0] || 'A') + (user.last_name?.[0] || 'S') : 'U';
+    const profilePic = user?.profile_picture ? `http://localhost:8000${user.profile_picture}` : undefined;
 
     return (
         <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -81,50 +43,63 @@ export default function Navbar() {
                         </Link>
                     </nav>
                 </div>
-             <div className="flex flex-1 items-center justify-end space-x-2">
-    {/* Change space-x-2 to space-x-4 here */}
-    <nav className="flex items-center space-x-4">
-        <ModeToggle />
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8 transition-opacity hover:opacity-80">
-                        <AvatarImage src={user.profile_picture || "https://github.com/shadcn.png"} alt="@user" />
-                        <AvatarFallback>{initials}</AvatarFallback>
-                    </Avatar>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{user.first_name} {user.last_name}</p>
-                        <p className="text-xs leading-none text-muted-foreground">
-                            {user.email}
-                        </p>
-                    </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                    <Link href="/profile" className="flex items-center cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        <span>Profile</span>
-                    </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                    <Link href="/settings" className="flex items-center cursor-pointer">
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Settings</span>
-                    </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-500 focus:text-red-500 cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    </nav>
-</div>
+                <div className="flex flex-1 items-center justify-end space-x-2">
+                    {/* Change space-x-2 to space-x-4 here */}
+                    <nav className="flex items-center space-x-4">
+                        <ModeToggle />
+                        {loading ? (
+                            <div className="h-8 w-8 rounded-full bg-muted animate-pulse"></div>
+                        ) : user ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                                        <Avatar className="h-8 w-8 transition-opacity hover:opacity-80">
+                                            <AvatarImage src={profilePic || "https://github.com/shadcn.png"} alt="@user" />
+                                            <AvatarFallback>{initials}</AvatarFallback>
+                                        </Avatar>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-56" align="end" forceMount>
+                                    <DropdownMenuLabel className="font-normal">
+                                        <div className="flex flex-col space-y-1">
+                                            <p className="text-sm font-medium leading-none">{user.first_name} {user.last_name}</p>
+                                            <p className="text-xs leading-none text-muted-foreground">
+                                                {user.email}
+                                            </p>
+                                        </div>
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/profile" className="flex items-center cursor-pointer">
+                                            <User className="mr-2 h-4 w-4" />
+                                            <span>Profile</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/settings" className="flex items-center cursor-pointer">
+                                            <Settings className="mr-2 h-4 w-4" />
+                                            <span>Settings</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-red-500 focus:text-red-500 cursor-pointer" onClick={logout}>
+                                        <LogOut className="mr-2 h-4 w-4" />
+                                        <span>Log out</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <div className="flex items-center space-x-2">
+                                <Button variant="ghost" size="sm" asChild>
+                                    <Link href="/login">Log in</Link>
+                                </Button>
+                                <Button size="sm" asChild>
+                                    <Link href="/register">Sign up</Link>
+                                </Button>
+                            </div>
+                        )}
+                    </nav>
+                </div>
 
             </div>
         </header>

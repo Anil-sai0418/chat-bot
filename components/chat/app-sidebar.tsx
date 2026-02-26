@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { MessageSquare, Plus, Settings, User, Search } from "lucide-react"
+import { MessageSquare, Plus, Settings, User, Search, LogOut } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import {
@@ -20,6 +20,7 @@ import {
     useSidebar,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/context/AuthContext"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -29,6 +30,7 @@ export function AppSidebar() {
     const [debouncedQuery, setDebouncedQuery] = React.useState("")
     const [shortcut, setShortcut] = React.useState("Ctrl+K")
     const { isMobile, setOpenMobile } = useSidebar()
+    const { token, logout } = useAuth()
 
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -36,7 +38,12 @@ export function AppSidebar() {
 
     const fetchChats = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/chats`)
+            if (!token) return;
+            const res = await fetch(`${API_URL}/api/chats`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
             if (res.ok) {
                 const data = await res.json()
                 setChatHistory(data)
@@ -52,7 +59,7 @@ export function AppSidebar() {
         const handleRefresh = () => fetchChats()
         window.addEventListener('refresh-chats', handleRefresh)
         return () => window.removeEventListener('refresh-chats', handleRefresh)
-    }, [])
+    }, [token])
 
     React.useEffect(() => {
         const timer = setTimeout(() => {
@@ -188,15 +195,21 @@ export function AppSidebar() {
             <SidebarFooter>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton>
+                        <SidebarMenuButton onClick={() => router.push('/profile')}>
                             <User />
                             <span>User Profile</span>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                        <SidebarMenuButton>
+                        <SidebarMenuButton onClick={() => router.push('/settings')}>
                             <Settings />
                             <span>Settings</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton onClick={() => logout()} className="text-destructive hover:bg-destructive/10">
+                            <LogOut />
+                            <span>Log out</span>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>

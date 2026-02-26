@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Mail, User, Shield, Key, Bell, Camera, Check, ExternalLink, Zap, CreditCard, LogOut, Loader2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ProfilePage() {
     const [activeTab, setActiveTab] = useState("general");
@@ -23,6 +24,7 @@ export default function ProfilePage() {
         email: "",
         profile_picture: ""
     });
+    const { token, logout, loading } = useAuth();
 
     // Avatar upload states
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +40,15 @@ export default function ProfilePage() {
     ];
 
     useEffect(() => {
-        fetch("http://localhost:8000/api/user")
+        if (!token) {
+            setIsLoading(false);
+            return;
+        }
+        fetch("http://localhost:8000/api/user", {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
             .then(res => res.json())
             .then(data => {
                 if (data && !data.error) {
@@ -57,7 +67,7 @@ export default function ProfilePage() {
                 setIsLoading(false);
                 toast.error("Failed to load profile data.");
             });
-    }, []);
+    }, [token]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { id, value } = e.target;
@@ -70,7 +80,10 @@ export default function ProfilePage() {
         try {
             const res = await fetch("http://localhost:8000/api/user", {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     first_name: user.first_name,
                     last_name: user.last_name,
@@ -114,6 +127,9 @@ export default function ProfilePage() {
                     const toastId = toast.loading("Uploading avatar...");
                     const res = await fetch("http://localhost:8000/api/user/avatar", {
                         method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${token}`
+                        },
                         body: formData
                     });
                     if (res.ok) {
@@ -279,10 +295,18 @@ export default function ProfilePage() {
         }
     };
 
-    if (isLoading) {
+    if (isLoading || loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (!token) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <p>Please log in to view your profile.</p>
             </div>
         );
     }
@@ -355,7 +379,7 @@ export default function ProfilePage() {
 
                                 <Separator className="my-2 hidden md:block" />
 
-                                <button className="hidden md:flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors w-full text-left">
+                                <button className="hidden md:flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors w-full text-left" onClick={logout}>
                                     <LogOut className="h-4 w-4" />
                                     Log out
                                 </button>

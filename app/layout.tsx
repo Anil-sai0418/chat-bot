@@ -5,6 +5,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import LayoutWrapper from "@/components/layout-wrapper";
+import { AuthProvider } from "@/context/AuthContext";
+import { ProtectedRoute } from "@/context/ProtectedRoute";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,12 +39,16 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <TooltipProvider>
-            <LayoutWrapper>
-              {children}
-            </LayoutWrapper>
-            <Toaster />
-          </TooltipProvider>
+          <AuthProvider>
+            <TooltipProvider>
+              <ProtectedRoute>
+                <LayoutWrapper>
+                  {children}
+                </LayoutWrapper>
+              </ProtectedRoute>
+              <Toaster />
+            </TooltipProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
