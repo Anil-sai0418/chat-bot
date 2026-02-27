@@ -35,7 +35,7 @@ export default function LoginPage() {
 
             if (res.ok) {
                 login(data.token, data.user);
-                router.push("/chat");
+                router.push("/");
             } else {
                 setError(data.error || "Login failed");
             }

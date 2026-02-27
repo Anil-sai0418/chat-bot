@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Sparkles, User, Settings, LogOut, Menu } from "lucide-react";
+import { Sparkles, User, Settings, LogOut, Menu, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -76,10 +76,22 @@ export default function Navbar() {
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem asChild>
-                                        <Link href="/settings" className="flex items-center cursor-pointer">
-                                            <Settings className="mr-2 h-4 w-4" />
-                                            <span>Settings</span>
-                                        </Link>
+                                        <button
+                                            className="w-full flex items-center cursor-pointer"
+                                            onClick={() => {
+                                                if (navigator.share) {
+                                                    navigator.share({
+                                                        title: 'ChatBot AI',
+                                                        url: window.location.href
+                                                    }).catch(console.error);
+                                                } else {
+                                                    navigator.clipboard.writeText(window.location.href);
+                                                }
+                                            }}
+                                        >
+                                            <Share2 className="mr-2 h-4 w-4" />
+                                            <span>Share</span>
+                                        </button>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem className="text-red-500 focus:text-red-500 cursor-pointer" onClick={logout}>

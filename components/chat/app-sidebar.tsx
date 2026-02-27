@@ -193,26 +193,6 @@ export function AppSidebar() {
                 )}
             </SidebarContent>
             <SidebarFooter>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton onClick={() => router.push('/profile')}>
-                            <User />
-                            <span>User Profile</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton onClick={() => router.push('/settings')}>
-                            <Settings />
-                            <span>Settings</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton onClick={() => logout()} className="text-destructive hover:bg-destructive/10">
-                            <LogOut />
-                            <span>Log out</span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>

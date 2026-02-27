@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowUp, Bot, FileUp, Image as ImageIcon, ImagePlus, Loader2, LogOut, Mic, MoreVertical, Paperclip, Plus, Settings, Share2, Smile, StopCircle, User } from "lucide-react"
+import { ArrowUp, Bot, FileUp, Image as ImageIcon, ImagePlus, Loader2, LogOut, Mic, MicOff, MoreVertical, Paperclip, Plus, Settings, Share2, Smile, StopCircle, User } from "lucide-react"
 import { toast } from "sonner"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -37,6 +37,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ModeToggle } from "@/components/mode-toggle"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { useAuth } from "@/context/AuthContext"
+import { motion } from "framer-motion"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -53,6 +54,10 @@ export function ChatInterface() {
     const [isShareOpen, setIsShareOpen] = React.useState(false)
     const [isLoading, setIsLoading] = React.useState(false)
     const scrollAreaRef = React.useRef<HTMLDivElement>(null)
+    const fileInputRef = React.useRef<HTMLInputElement>(null)
+    const imageInputRef = React.useRef<HTMLInputElement>(null)
+    const [isListening, setIsListening] = React.useState(false)
+    const [recognition, setRecognition] = React.useState<any>(null)
     const { token, user, logout } = useAuth()
 
     const router = useRouter()
@@ -105,12 +110,80 @@ export function ChatInterface() {
         }
     }, [messages])
 
+    React.useEffect(() => {
+        if (typeof window !== "undefined") {
+            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                const rec = new SpeechRecognition();
+                rec.continuous = false;
+                rec.interimResults = false;
+
+                rec.onresult = (event: any) => {
+                    const transcript = event.results[0][0].transcript;
+                    setInput(prev => prev + (prev.length > 0 ? ' ' : '') + transcript);
+                    setIsListening(false);
+                };
+
+                rec.onerror = (event: any) => {
+                    console.error("Speech recognition error", event.error);
+                    toast.error("Microphone error: " + event.error);
+                    setIsListening(false);
+                };
+
+                rec.onend = () => {
+                    setIsListening(false);
+                };
+
+                setRecognition(rec);
+            }
+        }
+    }, []);
+
     const handleFileUpload = () => {
-        toast.success("File uploaded successfully!")
+        fileInputRef.current?.click();
     }
 
     const handleImageUpload = () => {
-        toast.success("Image added to chat!")
+        imageInputRef.current?.click();
+    }
+
+    const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            toast.success(`Attached ${file.name}`);
+            setInput(prev => prev + `[File: ${file.name}] `);
+            e.target.value = '';
+        }
+    }
+
+    const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            toast.success(`Attached image ${file.name}`);
+            setInput(prev => prev + `[Image: ${file.name}] `);
+            e.target.value = '';
+        }
+    }
+
+    const toggleMic = () => {
+        if (!recognition) {
+            toast.error("Speech recognition is not supported in this browser.");
+            return;
+        }
+
+        if (isListening) {
+            recognition.stop();
+            setIsListening(false);
+        } else {
+            try {
+                recognition.start();
+                setIsListening(true);
+                toast.info("Listening...");
+            } catch (e) {
+                // Ignore if it's already started
+                setIsListening(false);
+            }
+        }
     }
 
     const handleShare = () => {
@@ -221,6 +294,19 @@ export function ChatInterface() {
 
     const renderInputBox = () => (
         <div className="relative flex flex-col rounded-xl border bg-background shadow-sm focus-within:ring-1 focus-within:ring-ring">
+            <input
+                type="file"
+                ref={fileInputRef}
+                onChange={onFileChange}
+                className="hidden"
+            />
+            <input
+                type="file"
+                accept="image/*"
+                ref={imageInputRef}
+                onChange={onImageChange}
+                className="hidden"
+            />
             <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -260,12 +346,17 @@ export function ChatInterface() {
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hidden sm:flex">
-                            <Mic className="h-4 w-4" />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn("h-8 w-8 rounded-full hidden sm:flex", isListening ? "text-red-500 hover:text-red-600 bg-red-500/10" : "text-muted-foreground hover:text-foreground")}
+                            onClick={toggleMic}
+                        >
+                            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                             <span className="sr-only">Voice input</span>
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Voice input</TooltipContent>
+                    <TooltipContent>{isListening ? "Stop listening" : "Voice input"}</TooltipContent>
                 </Tooltip>
             </div>
             <div className="absolute bottom-2 right-2">
@@ -295,12 +386,6 @@ export function ChatInterface() {
                     <ModeToggle />
 
                     <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
-                        <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                                <Share2 className="h-4 w-4" />
-                                <span className="sr-only">Share</span>
-                            </Button>
-                        </DialogTrigger>
                         <DialogContent className="sm:max-w-md">
                             <DialogHeader>
                                 <DialogTitle>Share chat</DialogTitle>
@@ -348,9 +433,9 @@ export function ChatInterface() {
                                 <User className="mr-2 h-4 w-4" />
                                 Profile
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push("/settings")}>
-                                <Settings className="mr-2 h-4 w-4" />
-                                Settings
+                            <DropdownMenuItem onClick={() => setIsShareOpen(true)}>
+                                <Share2 className="mr-2 h-4 w-4" />
+                                Share
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive mb-1" onClick={() => logout()}>
@@ -386,17 +471,23 @@ export function ChatInterface() {
                                 { title: "Debug code", desc: "Find errors in python scripts", icon: "🐛" },
                                 { title: "Brainstorm", desc: "Ideas for a new campaign", icon: "💡" }
                             ].map((card, i) => (
-                                <Card
+                                <motion.div
                                     key={i}
-                                    className="p-4 cursor-pointer hover:bg-muted/50 transition-all border-muted-foreground/20 hover:border-primary/30 flex flex-col gap-2 shadow-sm"
-                                    onClick={() => setInput(card.title + " - " + card.desc)}
+                                    initial={{ opacity: 0, y: 15 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.3, delay: i * 0.1 }}
                                 >
-                                    <div className="text-2xl">{card.icon}</div>
-                                    <div>
-                                        <h3 className="font-medium text-sm text-foreground">{card.title}</h3>
-                                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{card.desc}</p>
-                                    </div>
-                                </Card>
+                                    <Card
+                                        className="h-full p-4 cursor-pointer hover:bg-muted/50 transition-all border-muted-foreground/20 hover:border-primary/30 flex flex-col gap-2 shadow-sm"
+                                        onClick={() => setInput(card.title + " - " + card.desc)}
+                                    >
+                                        <div className="text-2xl">{card.icon}</div>
+                                        <div>
+                                            <h3 className="font-medium text-sm text-foreground">{card.title}</h3>
+                                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{card.desc}</p>
+                                        </div>
+                                    </Card>
+                                </motion.div>
                             ))}
                         </div>
                     </div>
@@ -444,6 +535,40 @@ export function ChatInterface() {
                                         </div>
                                     </div>
                                 ))}
+
+                                {isLoading && (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="flex w-full items-start gap-4 flex-row"
+                                    >
+                                        <Avatar className="h-8 w-8 border bg-primary text-primary-foreground">
+                                            <Bot className="h-5 w-5" />
+                                        </Avatar>
+                                        <div className="flex max-w-[80%] flex-col gap-2 items-start">
+                                            <div className="rounded-2xl px-4 py-3.5 text-sm shadow-sm bg-muted border border-muted-foreground/10">
+                                                <div className="flex space-x-1 items-center justify-center h-4">
+                                                    <motion.div
+                                                        animate={{ y: [0, -4, 0] }}
+                                                        transition={{ repeat: Infinity, duration: 0.6, delay: 0 }}
+                                                        className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
+                                                    />
+                                                    <motion.div
+                                                        animate={{ y: [0, -4, 0] }}
+                                                        transition={{ repeat: Infinity, duration: 0.6, delay: 0.15 }}
+                                                        className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
+                                                    />
+                                                    <motion.div
+                                                        animate={{ y: [0, -4, 0] }}
+                                                        transition={{ repeat: Infinity, duration: 0.6, delay: 0.3 }}
+                                                        className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+
                                 <div ref={scrollAreaRef} />
                             </div>
                         </ScrollArea>
