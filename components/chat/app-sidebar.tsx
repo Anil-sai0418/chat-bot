@@ -96,16 +96,77 @@ export function AppSidebar() {
             )
         }
 
-        // Group by Today, Past 7 Days, Older
-        const groups = [
-            { label: "Recent", items: [] as any[] }
-        ]
+        const groups: Record<string, any[]> = {
+            "Today": [],
+            "Yesterday": [],
+            "This Week": [],
+            "Last Week": [],
+            "Older": []
+        };
 
-        history.forEach(chat => {
-            groups[0].items.push(chat)
-        })
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        return groups.filter(g => g.items.length > 0)
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+
+        const startOfLastWeek = new Date(startOfWeek);
+        startOfLastWeek.setDate(startOfWeek.getDate() - 7);
+
+        // Sort chronologically descending
+        const sortedHistory = [...history].sort((a, b) => {
+            const dateA = new Date(a.created_at || 0).getTime();
+            const dateB = new Date(b.created_at || 0).getTime();
+            return dateB - dateA;
+        });
+
+        sortedHistory.forEach(chat => {
+            if (!chat.created_at) {
+                groups["Older"].push(chat);
+                return;
+            }
+
+            const chatDate = new Date(chat.created_at);
+
+            if (chatDate >= today) {
+                groups["Today"].push(chat);
+            } else if (chatDate >= yesterday) {
+                groups["Yesterday"].push(chat);
+            } else if (chatDate >= startOfWeek) {
+                groups["This Week"].push(chat);
+            } else if (chatDate >= startOfLastWeek) {
+                groups["Last Week"].push(chat);
+            } else {
+                const monthYear = chatDate.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+                if (!groups[monthYear]) {
+                    groups[monthYear] = [];
+                }
+                groups[monthYear].push(chat);
+            }
+        });
+
+        const activeGroups = [
+            { label: "Today", items: groups["Today"] },
+            { label: "Yesterday", items: groups["Yesterday"] },
+            { label: "This Week", items: groups["This Week"] },
+            { label: "Last Week", items: groups["Last Week"] },
+        ];
+
+        // Add dynamic month-year groups in the order they were naturally inserted (which is descending order since history is sorted)
+        Object.keys(groups).forEach(key => {
+            if (!["Today", "Yesterday", "This Week", "Last Week", "Older"].includes(key)) {
+                activeGroups.push({ label: key, items: groups[key] });
+            }
+        });
+
+        if (groups["Older"].length > 0) {
+            activeGroups.push({ label: "Older", items: groups["Older"] });
+        }
+
+        return activeGroups.filter(g => g.items.length > 0)
     }, [debouncedQuery, chatHistory])
 
     return (

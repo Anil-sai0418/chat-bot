@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowUp, Bot, FileUp, Image as ImageIcon, ImagePlus, Loader2, LogOut, Mic, MicOff, MoreVertical, Paperclip, Plus, Settings, Share2, Smile, StopCircle, User } from "lucide-react"
+import { ArrowUp, Bot, FileUp, Image as ImageIcon, ImagePlus, Loader2, LogOut, Mic, MicOff, MoreVertical, Paperclip, Plus, Settings, Share2, Smile, StopCircle, User, X, FileIcon } from "lucide-react"
 import { toast } from "sonner"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -58,6 +58,7 @@ export function ChatInterface() {
     const imageInputRef = React.useRef<HTMLInputElement>(null)
     const [isListening, setIsListening] = React.useState(false)
     const [recognition, setRecognition] = React.useState<any>(null)
+    const [attachments, setAttachments] = React.useState<{ file: File, type: 'image' | 'file', preview?: string }[]>([])
     const { token, user, logout } = useAuth()
 
     const router = useRouter()
@@ -150,8 +151,7 @@ export function ChatInterface() {
     const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            toast.success(`Attached ${file.name}`);
-            setInput(prev => prev + `[File: ${file.name}] `);
+            setAttachments(prev => [...prev, { file, type: 'file' }]);
             e.target.value = '';
         }
     }
@@ -159,10 +159,21 @@ export function ChatInterface() {
     const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            toast.success(`Attached image ${file.name}`);
-            setInput(prev => prev + `[Image: ${file.name}] `);
+            const preview = URL.createObjectURL(file);
+            setAttachments(prev => [...prev, { file, type: 'image', preview }]);
             e.target.value = '';
         }
+    }
+
+    const removeAttachment = (index: number) => {
+        setAttachments(prev => {
+            const newAttachments = [...prev];
+            if (newAttachments[index].preview) {
+                URL.revokeObjectURL(newAttachments[index].preview!);
+            }
+            newAttachments.splice(index, 1);
+            return newAttachments;
+        });
     }
 
     const toggleMic = () => {
@@ -192,10 +203,17 @@ export function ChatInterface() {
     }
 
     const handleSend = async () => {
-        if (!input.trim() || isLoading) return
+        if ((!input.trim() && attachments.length === 0) || isLoading) return
 
         let currentChatId = chatId
-        const userInput = input
+        let userInput = input
+
+        if (attachments.length > 0) {
+            const attachmentStrings = attachments.map(a =>
+                a.type === 'image' ? `[Image Attached: ${a.file.name}]` : `[File Attached: ${a.file.name}]`
+            ).join("\n")
+            userInput = `${userInput}\n\n${attachmentStrings}`.trim()
+        }
 
         // Optimistic UI update
         const newMessage: Message = {
@@ -207,6 +225,7 @@ export function ChatInterface() {
 
         setMessages(prev => [...prev, newMessage])
         setInput("")
+        setAttachments([])
         setIsLoading(true)
 
         try {
@@ -294,6 +313,33 @@ export function ChatInterface() {
 
     const renderInputBox = () => (
         <div className="relative flex flex-col rounded-xl border bg-background shadow-sm focus-within:ring-1 focus-within:ring-ring">
+            {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 p-3 pb-0">
+                    {attachments.map((attachment, index) => (
+                        <div key={index} className="relative group flex items-center bg-muted/50 rounded-lg p-1 pr-2 border border-border/50">
+                            {attachment.type === 'image' ? (
+                                <img src={attachment.preview} alt="preview" className="h-10 w-10 object-cover rounded-md" />
+                            ) : (
+                                <div className="h-10 w-10 flex items-center justify-center bg-primary/10 text-primary rounded-md">
+                                    <FileIcon className="h-5 w-5" />
+                                </div>
+                            )}
+                            <div className="ml-2 flex flex-col justify-center overflow-hidden max-w-[120px]">
+                                <span className="text-xs font-medium truncate">{attachment.file.name}</span>
+                                <span className="text-[10px] text-muted-foreground">{(attachment.file.size / 1024).toFixed(1)} KB</span>
+                            </div>
+                            <Button
+                                variant="destructive"
+                                size="icon"
+                                onClick={() => removeAttachment(index)}
+                                className="absolute -top-2 -right-2 h-5 w-5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+            )}
             <input
                 type="file"
                 ref={fileInputRef}
@@ -362,9 +408,9 @@ export function ChatInterface() {
             <div className="absolute bottom-2 right-2">
                 <Button
                     onClick={handleSend}
-                    disabled={!input.trim() || isLoading}
+                    disabled={(!input.trim() && attachments.length === 0) || isLoading}
                     size="icon"
-                    className={cn("h-8 w-8 rounded-lg transition-all", input.trim() && !isLoading ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}
+                    className={cn("h-8 w-8 rounded-lg transition-all", (input.trim() || attachments.length > 0) && !isLoading ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}
                 >
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
                     <span className="sr-only">Send</span>
@@ -453,7 +499,7 @@ export function ChatInterface() {
                     /* Empty State: ChatGPT Style */
                     <div className="flex-1 flex flex-col items-center p-4 md:p-8 max-w-4xl mx-auto w-full h-full justify-center gap-8">
                         <div className="flex flex-col items-center gap-2 mt-auto mb-8">
-                            <Avatar className="h-16 w-16 mb-4 bg-primary text-primary-foreground border-4 border-background shadow-lg">
+                            <Avatar className="h-16 w-16 mb-4 bg-primary text-primary-foreground border-4 border-background shadow-lg items-center justify-center">
                                 <Bot className="h-8 w-8" />
                             </Avatar>
                             <h1 className="text-3xl font-semibold text-center tracking-tight">How can I help you today?</h1>
@@ -504,11 +550,16 @@ export function ChatInterface() {
                                             message.role === "user" ? "flex-row-reverse" : "flex-row"
                                         )}
                                     >
-                                        <Avatar className={cn("h-8 w-8 border", message.role === "assistant" ? "bg-primary text-primary-foreground" : "bg-muted")}>
+                                        <Avatar className={cn("h-8 w-8 border items-center justify-center", message.role === "assistant" ? "bg-primary text-primary-foreground" : "bg-muted")}>
                                             {message.role === "assistant" ? (
                                                 <Bot className="h-5 w-5" />
                                             ) : (
-                                                <User className="h-5 w-5" />
+                                                <>
+                                                    <AvatarImage src={user?.profile_picture ? `${API_URL}${user.profile_picture}` : undefined} alt="@user" />
+                                                    <AvatarFallback className="bg-transparent text-foreground text-xs">
+                                                        {user ? `${user.first_name?.[0] || 'A'}${user.last_name?.[0] || 'S'}` : <User className="h-5 w-5" />}
+                                                    </AvatarFallback>
+                                                </>
                                             )}
                                         </Avatar>
                                         <div className={cn("flex max-w-[80%] flex-col gap-2", message.role === "user" ? "items-end" : "items-start")}>
@@ -524,9 +575,54 @@ export function ChatInterface() {
                                                     "prose max-w-none text-wrap dark:prose-invert prose-p:leading-relaxed prose-pre:p-0",
                                                     message.role === "user" ? "prose-p:text-primary-foreground text-primary-foreground" : "text-foreground"
                                                 )}>
-                                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                                        {message.content}
-                                                    </ReactMarkdown>
+                                                    {message.role === "assistant" && message.content === "" ? (
+                                                        <div className="flex space-x-1 items-center justify-center h-4 py-1">
+                                                            <motion.div
+                                                                animate={{ y: [0, -4, 0] }}
+                                                                transition={{ repeat: Infinity, duration: 0.6, delay: 0 }}
+                                                                className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
+                                                            />
+                                                            <motion.div
+                                                                animate={{ y: [0, -4, 0] }}
+                                                                transition={{ repeat: Infinity, duration: 0.6, delay: 0.15 }}
+                                                                className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
+                                                            />
+                                                            <motion.div
+                                                                animate={{ y: [0, -4, 0] }}
+                                                                transition={{ repeat: Infinity, duration: 0.6, delay: 0.3 }}
+                                                                className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        (() => {
+                                                            const parts = message.content.split(/(\[Image Attached: .*?\]|\[File Attached: .*?\])/g);
+                                                            return parts.map((part, i) => {
+                                                                if (part.startsWith('[Image Attached: ')) {
+                                                                    const filename = part.replace('[Image Attached: ', '').replace(']', '');
+                                                                    return (
+                                                                        <div key={i} className="my-2 p-2 bg-background/20 rounded-md flex items-center gap-2 border border-background/20 w-max max-w-full">
+                                                                            <ImageIcon className="h-5 w-5 shrink-0" />
+                                                                            <span className="text-sm font-medium truncate">{filename}</span>
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                                if (part.startsWith('[File Attached: ')) {
+                                                                    const filename = part.replace('[File Attached: ', '').replace(']', '');
+                                                                    return (
+                                                                        <div key={i} className="my-2 p-2 bg-background/20 rounded-md flex items-center gap-2 border border-background/20 w-max max-w-full">
+                                                                            <FileIcon className="h-5 w-5 shrink-0" />
+                                                                            <span className="text-sm font-medium truncate">{filename}</span>
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                                return (
+                                                                    <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>
+                                                                        {part}
+                                                                    </ReactMarkdown>
+                                                                );
+                                                            });
+                                                        })()
+                                                    )}
                                                 </div>
                                             </div>
                                             <span className="text-xs text-muted-foreground">
@@ -535,39 +631,6 @@ export function ChatInterface() {
                                         </div>
                                     </div>
                                 ))}
-
-                                {isLoading && (
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        className="flex w-full items-start gap-4 flex-row"
-                                    >
-                                        <Avatar className="h-8 w-8 border bg-primary text-primary-foreground">
-                                            <Bot className="h-5 w-5" />
-                                        </Avatar>
-                                        <div className="flex max-w-[80%] flex-col gap-2 items-start">
-                                            <div className="rounded-2xl px-4 py-3.5 text-sm shadow-sm bg-muted border border-muted-foreground/10">
-                                                <div className="flex space-x-1 items-center justify-center h-4">
-                                                    <motion.div
-                                                        animate={{ y: [0, -4, 0] }}
-                                                        transition={{ repeat: Infinity, duration: 0.6, delay: 0 }}
-                                                        className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
-                                                    />
-                                                    <motion.div
-                                                        animate={{ y: [0, -4, 0] }}
-                                                        transition={{ repeat: Infinity, duration: 0.6, delay: 0.15 }}
-                                                        className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
-                                                    />
-                                                    <motion.div
-                                                        animate={{ y: [0, -4, 0] }}
-                                                        transition={{ repeat: Infinity, duration: 0.6, delay: 0.3 }}
-                                                        className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                )}
 
                                 <div ref={scrollAreaRef} />
                             </div>
@@ -584,6 +647,6 @@ export function ChatInterface() {
                     </>
                 )}
             </div>
-        </div>
+        </div >
     )
 }
