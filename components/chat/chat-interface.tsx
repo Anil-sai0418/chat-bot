@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowUp, Bot, FileUp, Image as ImageIcon, ImagePlus, Loader2, LogOut, Mic, MicOff, MoreVertical, Paperclip, Plus, Settings, Share2, Smile, StopCircle, User, X, FileIcon } from "lucide-react"
+import { ArrowUp, Bot, FileUp, Image as ImageIcon, ImagePlus, Loader2, LogOut, Mic, MicOff, MoreVertical, Paperclip, Plus, Settings, Share2, Smile, StopCircle, User, X, FileIcon, Pencil, Copy, Check } from "lucide-react"
 import { toast } from "sonner"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -59,6 +59,9 @@ export function ChatInterface() {
     const [isListening, setIsListening] = React.useState(false)
     const [recognition, setRecognition] = React.useState<any>(null)
     const [attachments, setAttachments] = React.useState<{ file: File, type: 'image' | 'file', preview?: string }[]>([])
+    const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null)
+    const [editedContent, setEditedContent] = React.useState("")
+    const [copiedMessageId, setCopiedMessageId] = React.useState<string | null>(null)
     const { token, user, logout } = useAuth()
 
     const router = useRouter()
@@ -200,6 +203,77 @@ export function ChatInterface() {
     const handleShare = () => {
         setIsShareOpen(false)
         toast.success("Link copied to clipboard!")
+    }
+
+    const handleCopy = (id: string, content: string) => {
+        navigator.clipboard.writeText(content);
+        setCopiedMessageId(id);
+        setTimeout(() => setCopiedMessageId(null), 2000);
+    }
+
+    const handleEditSave = async (messageId: string) => {
+        if (!editedContent.trim()) {
+            setEditingMessageId(null);
+            return;
+        }
+
+        // Optimistic update
+        setEditingMessageId(null);
+        setIsLoading(true);
+
+        // Remove all messages after the edited message, and update the edited message in UI
+        const msgIndex = messages.findIndex(m => m.id === messageId);
+        if (msgIndex === -1) return;
+
+        const newMessages = messages.slice(0, msgIndex + 1);
+        newMessages[msgIndex] = { ...newMessages[msgIndex], content: editedContent };
+
+        const aiMessageId = (Date.now() + 1).toString();
+        setMessages([...newMessages, {
+            id: aiMessageId,
+            role: "assistant",
+            content: "",
+            timestamp: new Date()
+        }]);
+
+        try {
+            const response = await fetch(`${API_URL}/api/chats/${chatId}/messages/${messageId}/edit`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ message: editedContent })
+            });
+
+            if (!response.ok) throw new Error("Failed to edit message");
+            if (!response.body) throw new Error("No response body");
+
+            const reader = response.body.getReader()
+            const decoder = new TextDecoder("utf-8")
+            let done = false
+            let aiResponseText = ""
+
+            while (!done) {
+                const { value, done: readerDone } = await reader.read()
+                done = readerDone
+                if (value) {
+                    const chunk = decoder.decode(value, { stream: true })
+                    aiResponseText += chunk
+
+                    setMessages((prev) =>
+                        prev.map((msg) =>
+                            msg.id === aiMessageId ? { ...msg, content: aiResponseText } : msg
+                        )
+                    )
+                }
+            }
+        } catch (error) {
+            toast.error("An error occurred while communicating with AI.");
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
     }
 
     const handleSend = async () => {
@@ -358,7 +432,7 @@ export function ChatInterface() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Message Vextron..."
-                className="min-h-[60px] w-full resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 p-4 pb-10"
+                className="min-h-[60px] max-h-[250px] overflow-y-auto w-full resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 p-4 pb-10"
                 rows={1}
             />
             <div className="absolute bottom-2 left-2 flex items-center gap-1">
@@ -562,70 +636,166 @@ export function ChatInterface() {
                                                 </>
                                             )}
                                         </Avatar>
-                                        <div className={cn("flex max-w-[80%] flex-col gap-2", message.role === "user" ? "items-end" : "items-start")}>
-                                            <div
-                                                className={cn(
-                                                    "rounded-2xl px-4 py-3 text-sm shadow-sm",
-                                                    message.role === "user"
-                                                        ? "bg-primary text-primary-foreground"
-                                                        : "bg-muted border border-muted-foreground/10 text-foreground"
-                                                )}
-                                            >
-                                                <div className={cn(
-                                                    "prose max-w-none text-wrap dark:prose-invert prose-p:leading-relaxed prose-pre:p-0",
-                                                    message.role === "user" ? "prose-p:text-primary-foreground text-primary-foreground" : "text-foreground"
-                                                )}>
-                                                    {message.role === "assistant" && message.content === "" ? (
-                                                        <div className="flex space-x-1 items-center justify-center h-4 py-1">
-                                                            <motion.div
-                                                                animate={{ y: [0, -4, 0] }}
-                                                                transition={{ repeat: Infinity, duration: 0.6, delay: 0 }}
-                                                                className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
-                                                            />
-                                                            <motion.div
-                                                                animate={{ y: [0, -4, 0] }}
-                                                                transition={{ repeat: Infinity, duration: 0.6, delay: 0.15 }}
-                                                                className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
-                                                            />
-                                                            <motion.div
-                                                                animate={{ y: [0, -4, 0] }}
-                                                                transition={{ repeat: Infinity, duration: 0.6, delay: 0.3 }}
-                                                                className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
-                                                            />
-                                                        </div>
-                                                    ) : (
-                                                        (() => {
-                                                            const parts = message.content.split(/(\[Image Attached: .*?\]|\[File Attached: .*?\])/g);
-                                                            return parts.map((part, i) => {
-                                                                if (part.startsWith('[Image Attached: ')) {
-                                                                    const filename = part.replace('[Image Attached: ', '').replace(']', '');
-                                                                    return (
-                                                                        <div key={i} className="my-2 p-2 bg-background/20 rounded-md flex items-center gap-2 border border-background/20 w-max max-w-full">
-                                                                            <ImageIcon className="h-5 w-5 shrink-0" />
-                                                                            <span className="text-sm font-medium truncate">{filename}</span>
-                                                                        </div>
-                                                                    );
-                                                                }
-                                                                if (part.startsWith('[File Attached: ')) {
-                                                                    const filename = part.replace('[File Attached: ', '').replace(']', '');
-                                                                    return (
-                                                                        <div key={i} className="my-2 p-2 bg-background/20 rounded-md flex items-center gap-2 border border-background/20 w-max max-w-full">
-                                                                            <FileIcon className="h-5 w-5 shrink-0" />
-                                                                            <span className="text-sm font-medium truncate">{filename}</span>
-                                                                        </div>
-                                                                    );
-                                                                }
-                                                                return (
-                                                                    <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>
-                                                                        {part}
-                                                                    </ReactMarkdown>
-                                                                );
-                                                            });
-                                                        })()
-                                                    )}
+                                        <div className={cn("flex max-w-[80%] flex-col gap-2 relative group", message.role === "user" ? "items-end" : "items-start")}>
+                                            {editingMessageId === message.id ? (
+                                                <div className="w-full bg-muted p-4 rounded-xl shadow-sm border border-border min-w-[300px]">
+                                                    <Textarea
+                                                        value={editedContent}
+                                                        onChange={(e) => setEditedContent(e.target.value)}
+                                                        className="min-h-[100px] w-full resize-none border-0 bg-background shadow-sm focus-visible:ring-1 p-3 mb-3 text-sm"
+                                                        rows={3}
+                                                    />
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button variant="outline" size="sm" onClick={() => setEditingMessageId(null)}>Cancel</Button>
+                                                        <Button size="sm" onClick={() => handleEditSave(message.id)}>Save & Submit</Button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <span className="text-xs text-muted-foreground">
+                                            ) : (
+                                                <div
+                                                    className={cn(
+                                                        "rounded-2xl px-4 py-3 text-sm shadow-sm",
+                                                        message.role === "user"
+                                                            ? "bg-primary text-primary-foreground"
+                                                            : "bg-muted border border-muted-foreground/10 text-foreground"
+                                                    )}
+                                                >
+                                                    <div className={cn(
+                                                        "prose max-w-none text-wrap dark:prose-invert prose-p:leading-relaxed prose-pre:p-0",
+                                                        message.role === "user" ? "prose-p:text-primary-foreground text-primary-foreground" : "text-foreground"
+                                                    )}>
+                                                        {message.role === "assistant" && message.content === "" ? (
+                                                            <div className="flex space-x-1 items-center justify-center h-4 py-1">
+                                                                <motion.div
+                                                                    animate={{ y: [0, -4, 0] }}
+                                                                    transition={{ repeat: Infinity, duration: 0.6, delay: 0 }}
+                                                                    className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
+                                                                />
+                                                                <motion.div
+                                                                    animate={{ y: [0, -4, 0] }}
+                                                                    transition={{ repeat: Infinity, duration: 0.6, delay: 0.15 }}
+                                                                    className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
+                                                                />
+                                                                <motion.div
+                                                                    animate={{ y: [0, -4, 0] }}
+                                                                    transition={{ repeat: Infinity, duration: 0.6, delay: 0.3 }}
+                                                                    className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full"
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            (() => {
+                                                                const parts = message.content.split(/(\[Image Attached: .*?\]|\[File Attached: .*?\])/g);
+                                                                return parts.map((part, i) => {
+                                                                    if (part.startsWith('[Image Attached: ')) {
+                                                                        const filename = part.replace('[Image Attached: ', '').replace(']', '');
+                                                                        return (
+                                                                            <div key={i} className="my-2 p-2 bg-background/20 rounded-md flex items-center gap-2 border border-background/20 w-max max-w-full">
+                                                                                <ImageIcon className="h-5 w-5 shrink-0" />
+                                                                                <span className="text-sm font-medium truncate">{filename}</span>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (part.startsWith('[File Attached: ')) {
+                                                                        const filename = part.replace('[File Attached: ', '').replace(']', '');
+                                                                        return (
+                                                                            <div key={i} className="my-2 p-2 bg-background/20 rounded-md flex items-center gap-2 border border-background/20 w-max max-w-full">
+                                                                                <FileIcon className="h-5 w-5 shrink-0" />
+                                                                                <span className="text-sm font-medium truncate">{filename}</span>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    return (
+                                                                        <ReactMarkdown
+                                                                            key={i}
+                                                                            remarkPlugins={[remarkGfm]}
+                                                                            components={{
+                                                                                pre({ node, children, ...props }: any) {
+                                                                                    return <div className="not-prose my-4 overflow-hidden rounded-xl bg-[#1e1e1e] border border-border/50">{children}</div>;
+                                                                                },
+                                                                                code({ node, className, children, ...props }: any) {
+                                                                                    const match = /language-(\w+)/.exec(className || '');
+                                                                                    const language = match ? match[1] : '';
+                                                                                    const codeString = String(children).replace(/\n$/, '');
+                                                                                    const isInline = !match && !codeString.includes('\n');
+
+                                                                                    if (!isInline) {
+                                                                                        return (
+                                                                                            <div className="flex flex-col">
+                                                                                                <div className="flex items-center justify-between px-4 py-2 bg-zinc-900 border-b border-border/50">
+                                                                                                    <span className="text-xs font-sans text-zinc-400">{language || 'text'}</span>
+                                                                                                    <button
+                                                                                                        title="Copy"
+                                                                                                        aria-label="Copy"
+                                                                                                        className="flex items-center gap-1.5 text-zinc-400 hover:text-zinc-100 transition-colors"
+                                                                                                        onClick={() => {
+                                                                                                            navigator.clipboard.writeText(codeString);
+                                                                                                            toast.success("Copied to clipboard");
+                                                                                                        }}
+                                                                                                    >
+                                                                                                        <Copy className="h-3.5 w-3.5" />
+                                                                                                        <span className="text-xs font-sans">Copy</span>
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                                <div className="p-4 overflow-x-auto text-sm text-zinc-50 font-mono">
+                                                                                                    <pre className="bg-transparent! p-0! m-0! text-inherit!">
+                                                                                                        <code className={className} {...props}>
+                                                                                                            {children}
+                                                                                                        </code>
+                                                                                                    </pre>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        );
+                                                                                    }
+                                                                                    return <code className={cn("bg-muted/50 px-1.5 py-0.5 rounded-md text-sm font-mono border border-border/50", className)} {...props}>{children}</code>;
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            {part}
+                                                                        </ReactMarkdown>
+                                                                    );
+                                                                });
+                                                            })()
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {message.role === "user" && editingMessageId !== message.id && (
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => handleCopy(message.id, message.content)}>
+                                                                {copiedMessageId === message.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Copy</TooltipContent>
+                                                    </Tooltip>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => {
+                                                                setEditingMessageId(message.id);
+                                                                setEditedContent(message.content.replace(/(\[Image Attached: .*?\]|\[File Attached: .*?\])/g, '').trim());
+                                                            }}>
+                                                                <Pencil className="h-3 w-3" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Edit</TooltipContent>
+                                                    </Tooltip>
+                                                </div>
+                                            )}
+
+                                            {message.role === "assistant" && (
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => handleCopy(message.id, message.content)}>
+                                                                {copiedMessageId === message.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Copy</TooltipContent>
+                                                    </Tooltip>
+                                                </div>
+                                            )}
+                                            <span className="text-xs text-muted-foreground mt-1">
                                                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         </div>
