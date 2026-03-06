@@ -11,10 +11,23 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const auth = require('./middleware/auth');
 
+const helmet = require('helmet');
+const compression = require('compression');
+
 const app = express();
 const port = process.env.PORT || 8000;
 
-app.use(cors());
+// Security and Performance Middlewares
+app.use(helmet({
+    crossOriginResourcePolicy: false, // Needed to serve images from /uploads to the frontend
+}));
+app.use(compression());
+
+// CORS Configuration
+app.use(cors({
+    origin: process.env.FRONTEND_URL || '*',
+    credentials: true,
+}));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
