@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 
 const db = require('./db');
+const { initDatabase, checkDatabaseTables } = require('./initDatabase');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const auth = require('./middleware/auth');
@@ -62,41 +63,47 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // Initialize a dummy user for the app to work without authentication yet
 async function initDb() {
     try {
-        // Create site_stats table if it doesn't exist to store visitor count
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS site_stats (
-                id SERIAL PRIMARY KEY,
-                key VARCHAR(50) UNIQUE NOT NULL,
-                value INTEGER DEFAULT 0
-            );
-        `);
+        console.log('\n=== 🚀 DATABASE INITIALIZATION STARTED ===\n');
 
-        // Initialize visitor_count if not exists
-        await db.query(`
-            INSERT INTO site_stats (key, value)
-            VALUES ('visitor_count', 0)
-            ON CONFLICT (key) DO NOTHING;
-        `);
+        // Step 1: Check if tables exist
+        const tablesExist = await checkDatabaseTables();
 
-        const res = await db.query('SELECT id FROM users WHERE username = $1', ['dummy_user']);
-        if (res.rowCount === 0) {
-            await db.query('INSERT INTO users (username, email, first_name, last_name) VALUES ($1, $2, $3, $4)', ['dummy_user', 'hello@anilsai.com', 'Anil', 'Sai']);
-            console.log('Dummy user created.');
+        // Step 2: If tables don't exist, initialize database
+        if (!tablesExist) {
+            console.log('\n⚠️  Tables not found. Running database initialization...\n');
+            await initDatabase();
         }
 
+        // Step 3: Verify all required columns exist (backward compatibility)
         try {
+            await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password VARCHAR(255);');
+            await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(100);');
+            await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(100);');
+            await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture VARCHAR(500);');
             await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS dob VARCHAR(100);');
+            await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;');
+            
+            await db.query('ALTER TABLE chats ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;');
+            await db.query('ALTER TABLE site_stats ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE;');
+            await db.query('ALTER TABLE site_stats ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;');
+            
+            console.log('✅ All required columns verified/added');
         } catch (alterErr) {
-            console.warn('Could not add dob column:', alterErr.message);
+            console.warn('⚠️  Could not add columns (they may already exist):', alterErr.message);
         }
+
+        console.log('\n=== ✅ DATABASE INITIALIZATION COMPLETED ===\n');
     } catch (e) {
+        console.error('\n❌ CRITICAL DATABASE ERROR ===\n');
+        console.error('Error Code:', e.code);
+        console.error('Error Message:', e.message);
+        
         if (e.code === '42P01') {
-            console.error('CRITICAL: Tables missing! Run backend/database.sql in your postgres database.');
-            process.exit(1);
-        } else {
-            console.error('DB Init Error:', e.message);
-            process.exit(1);
+            console.error('\nTables are missing! This should not happen if initialization ran successfully.');
+            console.error('Try running: npm run init-db');
         }
+        
+        process.exit(1);
     }
 }
 
