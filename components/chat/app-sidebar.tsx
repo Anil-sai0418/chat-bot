@@ -20,8 +20,9 @@ import {
     useSidebar,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuth } from "@/context/AuthContext"
-import { API_ENDPOINTS } from "@/lib/api-config"
+import { API_ENDPOINTS, getImageUrl } from "@/lib/api-config"
 
 export function AppSidebar() {
     const [chatHistory, setChatHistory] = React.useState<any[]>([])
@@ -29,7 +30,7 @@ export function AppSidebar() {
     const [debouncedQuery, setDebouncedQuery] = React.useState("")
     const [shortcut, setShortcut] = React.useState("Ctrl+K")
     const { isMobile, setOpenMobile } = useSidebar()
-    const { token, logout } = useAuth()
+    const { token, logout, user } = useAuth()
 
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -173,7 +174,7 @@ export function AppSidebar() {
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+                        <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer" onClick={() => router.push('/')}>
                             <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-blue-600 text-sidebar-primary-foreground">
                                 <MessageSquare className="size-4" />
                             </div>
@@ -253,6 +254,20 @@ export function AppSidebar() {
                 )}
             </SidebarContent>
             <SidebarFooter>
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <div className="flex items-center gap-2 px-2 py-2">
+                            <Avatar className="h-8 w-8">
+                                <AvatarImage src={getImageUrl(user?.profile_picture)} alt={user?.username || "User"} />
+                                <AvatarFallback>{user ? `${user.first_name?.[0] || 'A'}${user.last_name?.[0] || 'S'}` : 'U'}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{user?.username || 'User'}</p>
+                                <p className="text-xs text-muted-foreground truncate">{user?.email || ''}</p>
+                            </div>
+                        </div>
+                    </SidebarMenuItem>
+                </SidebarMenu>
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>
