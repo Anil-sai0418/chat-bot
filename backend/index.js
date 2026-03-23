@@ -24,7 +24,7 @@ if (missingEnvVars.length > 0) {
 }
 
 const app = express();
-const port = process.env.PORT || 8000;
+const port = parseInt(process.env.PORT || '8000', 10);
 
 // Security and Performance Middlewares
 app.use(helmet({
