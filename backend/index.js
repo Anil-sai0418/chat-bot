@@ -185,6 +185,11 @@ app.post('/api/auth/login', async (req, res) => {
 
         const user = result.rows[0];
 
+        // Check if the user has a password set (for legacy users)
+        if (!user.password) {
+            return res.status(400).json({ error: 'Password not set. Please register again or reset your password.' });
+        }
+
         // Check password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
