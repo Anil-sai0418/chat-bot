@@ -114,6 +114,14 @@ initDb().catch(err => {
     process.exit(1);
 });
 
+// Health Check Root Route
+app.get('/', (req, res) => {
+    res.status(200).json({ 
+        message: 'API is running successfully', 
+        timestamp: new Date().toISOString() 
+    });
+});
+
 // Visitor count routes
 app.get('/api/visitors', async (req, res) => {
     try {
