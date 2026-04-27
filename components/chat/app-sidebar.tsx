@@ -17,6 +17,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarRail,
+    SidebarTrigger,
     useSidebar,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -178,24 +179,25 @@ export function AppSidebar() {
         return activeGroups.filter(g => g.items.length > 0)
     }, [debouncedQuery, chatHistory])
 
-    return (
+        return (
         <Sidebar>
             <SidebarHeader>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer" onClick={() => router.push('/')}>
-                            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-blue-600 text-sidebar-primary-foreground">
-                                <MessageSquare className="size-4" />
-                            </div>
-                            <div className="grid flex-1 text-left text-sm leading-tight">
-                                <span className="truncate font-semibold">Vextron Chat</span>
-                                <span className="truncate text-xs">Pro Plan</span>
-                            </div>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-
-                <div className="px-2 py-1">
+                <div className="flex items-center justify-between gap-2">
+                    <SidebarMenu className="flex-1">
+                        <SidebarMenuItem>
+                            <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer" onClick={() => router.push('/')}>
+                                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-blue-600 text-sidebar-primary-foreground">
+                                    <MessageSquare className="size-4" />
+                                </div>
+                                <div className="grid flex-1 text-left text-sm leading-tight">
+                                    <span className="truncate font-semibold">Vextron Chat</span>
+                                    <span className="truncate text-xs">Pro Plan</span>
+                                </div>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                    <SidebarTrigger className="h-9 w-9 rounded-md bg-sidebar-accent hover:bg-sidebar-accent/80 transition-colors border border-sidebar-border" />
+                </div>                <div className="px-2 py-1">
                     <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                         <SidebarInput

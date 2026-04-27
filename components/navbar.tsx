@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
-import { Sparkles, User, Settings, LogOut, Menu, Share2 } from "lucide-react";
+import { Sparkles, User, LogOut, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ModeToggle } from "@/components/mode-toggle";
 import { useAuth } from "@/context/AuthContext";
 import { getImageUrl } from "@/lib/api-config";
+import { CommandPaletteSearchButton } from "@/components/command-palette/search-button";
 
 export default function Navbar() {
     const { user, logout, loading } = useAuth();
@@ -38,7 +39,7 @@ export default function Navbar() {
                 
                 </div>
                 <div className="flex flex-1 items-center justify-end space-x-2">
-                    {/* Change space-x-2 to space-x-4 here */}
+                    <CommandPaletteSearchButton />
                     <nav className="flex items-center space-x-7">
                         <ModeToggle />
                         {loading ? (

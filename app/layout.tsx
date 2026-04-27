@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import LayoutWrapper from "@/components/layout-wrapper";
 import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/context/ProtectedRoute";
+import { CommandPaletteProvider } from "@/components/command-palette/command-palette-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -121,14 +122,16 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <TooltipProvider>
-              <ProtectedRoute>
-                <LayoutWrapper>
-                  {children}
-                </LayoutWrapper>
-              </ProtectedRoute>
-              <Toaster />
-            </TooltipProvider>
+            <CommandPaletteProvider>
+              <TooltipProvider>
+                <ProtectedRoute>
+                  <LayoutWrapper>
+                    {children}
+                  </LayoutWrapper>
+                </ProtectedRoute>
+                <Toaster />
+              </TooltipProvider>
+            </CommandPaletteProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

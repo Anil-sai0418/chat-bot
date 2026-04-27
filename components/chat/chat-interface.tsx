@@ -35,7 +35,7 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ModeToggle } from "@/components/mode-toggle"
-import { SidebarTrigger } from "@/components/ui/sidebar"
+import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
 import { useAuth } from "@/context/AuthContext"
 import { motion } from "framer-motion"
 import { API_ENDPOINTS, getImageUrl } from "@/lib/api-config"
@@ -62,6 +62,7 @@ export function ChatInterface() {
     const [editedContent, setEditedContent] = React.useState("")
     const [copiedMessageId, setCopiedMessageId] = React.useState<string | null>(null)
     const { token, user, logout } = useAuth()
+    const { open: sidebarOpen } = useSidebar()
 
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -502,8 +503,12 @@ export function ChatInterface() {
 
     return (
         <div className="flex h-full flex-col">
-            {/* Header */}
-           <SidebarTrigger />
+            {/* Header - Toggle only visible when sidebar is closed */}
+            {!sidebarOpen && (
+                <div className="p-2">
+                    <SidebarTrigger className="h-9 w-9 rounded-md bg-sidebar-accent hover:bg-sidebar-accent/80 transition-colors border border-sidebar-border" />
+                </div>
+            )}
 
             {/* Main Layout Area */}
             <div className="flex-1 overflow-hidden flex flex-col">
