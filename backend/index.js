@@ -11,6 +11,8 @@ const { initDatabase, checkDatabaseTables } = require('./initDatabase');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const auth = require('./middleware/auth');
+const forgotPasswordRoute = require('./routes/auth/forgot-password');
+const resetPasswordRoute = require('./routes/auth/reset-password');
 
 const helmet = require('helmet');
 const compression = require('compression');
@@ -85,6 +87,8 @@ async function initDb() {
             await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(100);');
             await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture VARCHAR(500);');
             await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS dob VARCHAR(100);');
+            await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255);');
+            await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP;');
             await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;');
             
             await db.query('ALTER TABLE chats ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;');
@@ -218,6 +222,9 @@ app.post('/api/auth/login', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
+
+app.use('/api/auth/forgot-password', forgotPasswordRoute);
+app.use('/api/auth/reset-password', resetPasswordRoute);
 
 // Get User Profile
 app.get('/api/user', auth, async (req, res) => {

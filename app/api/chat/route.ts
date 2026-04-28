@@ -2,6 +2,10 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
 const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+type ChatMessage = {
+    role: string;
+    content: string;
+};
 
 let genAI: GoogleGenerativeAI;
 if (apiKey) {
@@ -17,13 +21,13 @@ export async function POST(req: Request) {
     }
 
     try {
-        const { messages } = await req.json();
+        const { messages } = (await req.json()) as { messages: ChatMessage[] };
 
         // Get the latest user message
         const lastMessage = messages[messages.length - 1];
 
         // Format previous messages as context for Gemini
-        const history = messages.slice(0, -1).map((m: any) => ({
+        const history = messages.slice(0, -1).map((m: ChatMessage) => ({
             role: m.role === 'user' ? 'user' : 'model',
             parts: [{ text: m.content }]
         }));
@@ -72,10 +76,11 @@ Make responses structured, modern, and easy to scan.`;
             headers: { 'Content-Type': 'text/plain; charset=utf-8' }
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Gemini API Error:", error);
+        const message = error instanceof Error ? error.message : "Failed to generate response";
         return NextResponse.json(
-            { error: error.message || "Failed to generate response" },
+            { error: message },
             { status: 500 }
         );
     }

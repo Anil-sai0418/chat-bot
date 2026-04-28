@@ -39,7 +39,7 @@ export default function Navbar() {
                 
                 </div>
                 <div className="flex flex-1 items-center justify-end space-x-2">
-                    <CommandPaletteSearchButton />
+                    {/* <CommandPaletteSearchButton /> */}
                     <nav className="flex items-center space-x-7">
                         <ModeToggle />
                         {loading ? (

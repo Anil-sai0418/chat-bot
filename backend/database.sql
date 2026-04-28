@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
     last_name VARCHAR(100),
     profile_picture VARCHAR(500),
     dob VARCHAR(100),
+    reset_token VARCHAR(255),
+    reset_token_expiry TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -14,6 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+
+CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(reset_token);
 
 CREATE TABLE IF NOT EXISTS chats (
     id SERIAL PRIMARY KEY,

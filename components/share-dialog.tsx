@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import QRCodeStyling, {
-  Options,
-} from "qr-code-styling";
+import QRCode from "qrcode";
 import {
   Dialog,
   DialogContent,
@@ -23,82 +21,57 @@ interface ShareDialogProps {
 }
 
 export function ShareDialog({ isOpen, onOpenChange, url }: ShareDialogProps) {
-  const qrCodeRef = useRef<any>(null);
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [copied, setCopied] = useState(false);
-  const [qrSvg, setQrSvg] = useState<string>("");
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const shareUrl = url || (typeof window !== "undefined" ? window.location.origin : "https://vextron.ai");
 
   const [isRendering, setIsRendering] = useState(false);
 
   useEffect(() => {
-    // Only proceed on client-side
     if (typeof window === "undefined" || !isOpen) return;
 
     setIsRendering(true);
 
-    const renderQR = async () => {
+    const generateQrCode = async () => {
       try {
-        const QRCodeStylingLib = (await import("qr-code-styling")).default;
-        
-        const qr = new QRCodeStylingLib({
-          width: 300,
-          height: 300,
-          type: "svg",
-          data: shareUrl,
-          image: "/og-image-square.png",
-          dotsOptions: {
-            color: "#1d4ed8",
-            type: "rounded",
-          },
-          backgroundOptions: {
-            color: "#ffffff",
-          },
-          imageOptions: {
-            margin: 10,
-            imageSize: 0.4,
-            hideBackgroundDots: true,
-          },
-          cornersSquareOptions: {
-            type: "extra-rounded",
-            color: "#1e3a8a",
-          },
-          cornersDotOptions: {
-            type: "dot",
-            color: "#1e40af",
-          },
-          qrOptions: {
-            errorCorrectionLevel: "Q",
-          },
-        });
-        
-        qrCodeRef.current = qr;
-        const svgBlob = await qr.getRawData("svg");
-        if (svgBlob) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            setQrSvg(reader.result as string);
-            setIsRendering(false);
-          };
-          reader.readAsText(svgBlob as Blob);
+        const canvas = qrCanvasRef.current;
+        if (!canvas) {
+          setIsRendering(false);
+          return;
         }
+
+        await QRCode.toCanvas(canvas, shareUrl, {
+          width: 300,
+          margin: 2,
+          color: {
+            dark: "#1d4ed8",
+            light: "#ffffff",
+          },
+          errorCorrectionLevel: "Q",
+        });
+
+        setQrDataUrl(canvas.toDataURL("image/png"));
+        setIsRendering(false);
       } catch (err) {
         console.error("QR Code rendering failed:", err);
         setIsRendering(false);
       }
     };
 
-    renderQR();
+    generateQrCode();
   }, [isOpen, shareUrl]);
 
-  // Removed redundant second useEffect
-
   const handleDownload = () => {
-    if (qrCodeRef.current) {
-      qrCodeRef.current.download({
-        name: "vextron-ai-qr",
-        extension: "png",
-      });
+    if (!qrDataUrl) {
+      toast.error("QR code is not ready yet.");
+      return;
     }
+
+    const a = document.createElement("a");
+    a.href = qrDataUrl;
+    a.download = "vextron-ai-qr.png";
+    a.click();
   };
 
   const handleCopy = async () => {
@@ -139,17 +112,17 @@ export function ShareDialog({ isOpen, onOpenChange, url }: ShareDialogProps) {
         </DialogHeader>
         <div className="flex flex-col items-center justify-center p-6 space-y-6">
           <div className="bg-white p-4 rounded-2xl shadow-xl border-4 border-primary/10 overflow-hidden min-h-[312px] min-w-[312px] flex items-center justify-center relative">
-            {isRendering && !qrSvg && (
+            {isRendering && !qrDataUrl && (
                 <div className="absolute inset-0 flex items-center justify-center bg-white/50 animate-pulse">
                     <span className="text-sm text-primary font-medium">Generating QR...</span>
                 </div>
             )}
-            {qrSvg && (
-                <div 
-                    dangerouslySetInnerHTML={{ __html: qrSvg }} 
-                    className="w-[300px] h-[300px]"
-                />
-            )}
+            <canvas
+              ref={qrCanvasRef}
+              width={300}
+              height={300}
+              className={`w-[300px] h-[300px] ${qrDataUrl ? "block" : "hidden"}`}
+            />
           </div>
           
           <div className="w-full flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border/50">

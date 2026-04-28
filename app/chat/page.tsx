@@ -1,7 +1,7 @@
 import { AppSidebar } from "@/components/chat/app-sidebar"
 import { ChatInterface } from "@/components/chat/chat-interface"
 import { Suspense } from "react"
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { SidebarProvider } from "@/components/ui/sidebar"
 
 export default function ChatPage() {
     return (

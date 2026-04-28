@@ -3,14 +3,23 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
 import { API_ENDPOINTS } from "@/lib/api-config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Bot, ArrowRight, Loader2 } from "lucide-react";
+import { Bot, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+
+const getPasswordStrength = (password: string) => {
+    if (password.length < 6) {
+        return { label: "Weak", color: "bg-red-500", width: "30%" };
+    }
+    if (password.length < 10) {
+        return { label: "Medium", color: "bg-yellow-500", width: "60%" };
+    }
+    return { label: "Strong", color: "bg-green-500", width: "100%" };
+};
 
 export default function RegisterPage() {
     const [formData, setFormData] = useState({
@@ -23,8 +32,8 @@ export default function RegisterPage() {
 
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    const { login } = useAuth();
     const router = useRouter();
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,6 +67,8 @@ export default function RegisterPage() {
             setLoading(false);
         }
     };
+
+    const passwordStrength = getPasswordStrength(formData.password);
 
     return (
         <div className="min-h-screen flex flex-col justify-center items-center bg-background p-4 relative overflow-hidden py-12">
@@ -101,6 +112,7 @@ export default function RegisterPage() {
                                 <Input
                                     id="first_name"
                                     type="text"
+                                    placeholder="John"
                                     value={formData.first_name}
                                     onChange={handleChange}
                                     required
@@ -112,6 +124,7 @@ export default function RegisterPage() {
                                 <Input
                                     id="last_name"
                                     type="text"
+                                    placeholder="Doe"
                                     value={formData.last_name}
                                     onChange={handleChange}
                                     required
@@ -148,15 +161,31 @@ export default function RegisterPage() {
 
                         <div className="space-y-2">
                             <Label htmlFor="password" className="text-[10px] uppercase tracking-wider text-muted-foreground">Password</Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="••••••••"
-                                value={formData.password}
-                                onChange={handleChange}
-                                required
-                                className="h-10 text-sm bg-background/50 border-border/50 text-foreground"
-                            />
+                            <div className="relative">
+                                <Input
+                                    id="password"
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="••••••••"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    required
+                                    className="h-10 text-sm bg-background/50 border-border/50 text-foreground pr-10"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            {formData.password && (
+                                <p className="text-xs mt-1 text-muted-foreground">
+                                    Strength: <span className={`font-medium ${passwordStrength.color.replace('bg-', 'text-')}`}>
+                                        {passwordStrength.label}
+                                    </span>
+                                </p>
+                            )}
                         </div>
 
                         <Button type="submit" className="w-full h-11" disabled={loading}>
